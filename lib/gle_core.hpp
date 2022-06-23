@@ -16,6 +16,7 @@
 #include "./../../NR/NR_C301/code/stepper.h"
 #include "./../../NR/NR_C301/code/stepperdopr853.h"
 #include "./../../NR/NR_C301/code/stepperross.h"
+#include "./../../NR/NR_C301/code/steppersie.h"
 #include "./../../NR/NR_C301/code/odeint.h"
 
 
@@ -129,16 +130,22 @@ struct rhs_gle{
     }
 
     void jacobian(const Doub x, VecDoub_I &y, VecDoub_O &dfdx, MatDoub_O &dfdy) {
+        dfdy = LinearJacobian;
         for (int i_phi=0; i_phi<Nphi; i_phi++){
             dfdx[i_phi]=0.;
             dfdx[i_phi+Nphi]=0.;
-            for (int j_phi=0; j_phi<Nphi; j_phi++){
-                dfdy[i_phi][j_phi] = LinearJacobian[i_phi][j_phi] - 2*g0*y[i_phi]*y[i_phi+Nphi];
-                dfdy[i_phi][j_phi+Nphi] = LinearJacobian[i_phi][j_phi+Nphi] - g0*(y[i_phi]*y[i_phi] + 3*y[i_phi+Nphi]*y[i_phi+Nphi] );
-                dfdy[i_phi+Nphi][j_phi+Nphi] = LinearJacobian[i_phi+Nphi][j_phi+Nphi] + 2*g0*y[i_phi]*y[i_phi+Nphi];
-                dfdy[i_phi+Nphi][j_phi] = LinearJacobian[i_phi+Nphi][j_phi] + g0*(3*y[i_phi]*y[i_phi] + y[i_phi+Nphi]*y[i_phi+Nphi] );
+            dfdy[i_phi][i_phi]-= 2*g0*y[i_phi]*y[i_phi+Nphi];
+            dfdy[i_phi][i_phi+Nphi] -= g0*(y[i_phi]*y[i_phi] + 3*y[i_phi+Nphi]*y[i_phi+Nphi] );
+            dfdy[i_phi+Nphi][i_phi+Nphi] +=  2*g0*y[i_phi]*y[i_phi+Nphi];
+            dfdy[i_phi+Nphi][i_phi] +=  g0*(3*y[i_phi]*y[i_phi] + y[i_phi+Nphi]*y[i_phi+Nphi] );
 
-            }
+//          for (int j_phi=0; j_phi<Nphi; j_phi++){
+//              dfdy[i_phi][j_phi] = LinearJacobian[i_phi][j_phi] - 2*g0*y[i_phi]*y[i_phi+Nphi];
+//              dfdy[i_phi][j_phi+Nphi] = LinearJacobian[i_phi][j_phi+Nphi] - g0*(y[i_phi]*y[i_phi] + 3*y[i_phi+Nphi]*y[i_phi+Nphi] );
+//              dfdy[i_phi+Nphi][j_phi+Nphi] = LinearJacobian[i_phi+Nphi][j_phi+Nphi] + 2*g0*y[i_phi]*y[i_phi+Nphi];
+//              dfdy[i_phi+Nphi][j_phi] = LinearJacobian[i_phi+Nphi][j_phi] + g0*(3*y[i_phi]*y[i_phi] + y[i_phi+Nphi]*y[i_phi+Nphi] );
+
+//          }
 
 
         }

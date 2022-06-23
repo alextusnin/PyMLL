@@ -12,18 +12,18 @@ import sys,os
 curr_dir = os.getcwd()
 PyMLL_dir = os.path.dirname(curr_dir)
 sys.path.append(PyMLL_dir)
-sys.path.append('/home/alextusnin/Documents/Projects/PyCORe')
+sys.path.append('/home/tusnin/Documents/Projects/PyCORe')
 import PyCORe_main as pcm
 
 import PyMLL_main as PyMLL
 import time
 from scipy.constants import c,hbar
 
-start_time = time.time()
-FSR = 20e9
+
+FSR = 500e9
 D1 = 2*np.pi*FSR
-Num_of_modes = 2**10
-D2 = 2*np.pi*0.1*1e6#-1*beta2*L/Tr*D1**2 ## From beta2 to D2
+Num_of_modes = 2**9
+D2 = 2*np.pi*4*1e6#-1*beta2*L/Tr*D1**2 ## From beta2 to D2
 D3 = -2*np.pi*25e3*0
 D4 = -2*np.pi*1e3*0
 D5 = 2*np.pi*54*0
@@ -31,9 +31,9 @@ D6 = -2*np.pi*1*0
 mu = np.arange(-Num_of_modes/2,Num_of_modes/2)
 
 Dint = (mu**2*D2/2 + mu**3*D3/6+mu**4*D4/24+mu**5*D5/120+mu**6*D6/720)
-kappa_ex_ampl = 50e6*2*np.pi
+kappa_ex_ampl = 200e6*2*np.pi
 kappa_ex = kappa_ex_ampl*np.ones([Num_of_modes])
-nn=100
+nn=1000
 # gain = PyMLL.Gain()
 # gain.Transform_to_rad_Hz(1.9)
 # a1,a2,w1,w2,sigma1,sigma2=gain.FitGaussian()
@@ -57,11 +57,11 @@ PhysicalParameters = {'n0' : 1.9,
 GLE = PyMLL.GLE()
 GLE.Init_From_Dict(PhysicalParameters)
 
-simulation_parameters = {'slow_time' : 1e-10,
+simulation_parameters = {'slow_time' : 40e-9,
                          'Number of points' : nn,
-                         'noise_level' : 1e-16,
+                         'noise_level' : 1e-12,
                          'output' : 'map',
-                         'absolute_tolerance' : 1e-8,
+                         'absolute_tolerance' : 1e-10,
                          'relative_tolerance' : 1e-6,
                          'max_internal_steps' : 2000}
 #%%
@@ -71,23 +71,30 @@ C=0; Phi = 0;
 A0 = np.sqrt(3/4*(G0-GLE.kappa.max())/(GLE.g0)*abs(D2)/G2)*np.sqrt(hbar*GLE.w0)
 B = np.sqrt(3/G2/(1+C**2)*(G0-GLE.kappa.max()))
 Soliton = A0*1/(np.cosh(B*(GLE.phi-np.pi)))**(1+1j*C)
-SolSpectrum = np.fft.fft(Soliton)#/1e10#/1e10#/Num_of_modes**2/
+SolSpectrum = np.fft.fft(Soliton)/1e5#/1e10#/Num_of_modes**2/
 
 # A0 = 0.00001
 # sigma = 0.1
 # Soliton = A0*1/(np.cosh((GLE.phi-np.pi)/sigma)) #A0*np.exp(-(GLE.phi-np.pi)**2/2/sigma)
 # SolSpectrum = np.fft.fft(Soliton)#/1e10#/1e10#/Num_of_modes**2/
 #%%
-#map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-5)
-map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-2)
-print("--- %s seconds ---" % (time.time() - start_time))
-# for jj in range(40):
+start_time = time.time()
+# map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-5)
+# map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-5)
+# map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-2)
+map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,dt=1e-2)#*np.sqrt((hbar*GLE.w0))
+#%%
+start_time = time.time()
+# for jj in range(1):
 #     Seed=map2d[-1,:]
-#     map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=Seed,dt=1e-5)
+#     map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,Seed=Seed,dt=1e-2)
+#     print("--- %s seconds ---" % (time.time() - start_time))
+    
+print("--- %s seconds ---" % (time.time() - start_time))
 #%%
 #pcm.Plot_Map(np.fft.ifft(map2d[:,:],axis=1),np.arange(nn))
 #%%
-plt.plot(np.sum(np.abs(map2d[:,:])**2,axis=1)/GLE.gain.P_th)
+plt.plot(np.arange(nn)*simulation_parameters['slow_time']/nn,np.sum(np.abs(map2d[:,:])**2,axis=1)*((hbar*GLE.w0))/GLE.gain.P_th)
 #%%
 # plt.figure()
 # plt.pcolormesh(GLE.frequency_grid,np.arange(nn-10000),np.log(abs(np.fft.fftshift(np.fft.fft(map2d[10000:,:],axis=0)))))

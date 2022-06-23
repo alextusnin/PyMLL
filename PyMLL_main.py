@@ -387,7 +387,7 @@ class GLE:
         sol[0,:] = (seed)/self.N_points
         print(np.sum(np.abs(sol[0,:])))
         
-        P_th=self.gain.P_th#/(self.N_points**2)#*(1./(hbar*self.w0))#*(2*self.g0/self.kappa.max())/(self.N_points**2)
+        P_th=self.gain.P_th/(hbar*self.w0)
         print(P_th)
         #%% crtypes defyning
         GLE_core = ctypes.CDLL(os.path.abspath(__file__)[:-14]+'/lib/lib_gle_core.so')
@@ -411,7 +411,7 @@ class GLE:
         In_gain = np.array(self.gain_grid/self.kappa,dtype=ctypes.c_double)
         In_P_th = ctypes.c_double(P_th)
         In_Tstep = ctypes.c_double(t_st)
-        In_g0 = ctypes.c_double(self.g0/(hbar*self.w0)*2/self.kappa.max())
+        In_g0 = ctypes.c_double(self.g0*2/self.kappa.max())
         In_Nt = ctypes.c_int(int(t_st/dt)+1)
         In_dt = ctypes.c_double(dt)
         In_noise_amp = ctypes.c_double(eps)

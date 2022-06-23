@@ -93,7 +93,8 @@ void* Propagate_Stiff(double* In_val_RE, double* In_val_IM,  const double *phi, 
     dtmax = t1-t0;
     if (dtmax < dt) {dtmax/=10; dtmin=dtmax/10;}
     else {dtmax = dt; dtmin = dt/10;}
-    std::cout<<"dtmax = " << dtmax << " single step = " << Tstep << " Tmax = " << Tstep*Ndet << "\n";
+    //std::cout<<"dtmax = " << dtmax << " single step = " << Tstep << " Tmax = " << Tstep*Ndet << "\n";
+    std::cout<<"dt = " << dt << " single step = " << Tstep << " Tmax = " << Tstep*Ndet << "\n";
 
     VecDoub res_buf(2*Nphi);
     double power = 0.;
@@ -110,12 +111,13 @@ void* Propagate_Stiff(double* In_val_RE, double* In_val_IM,  const double *phi, 
     Output out(Ndet);
     rhs_gle gle(Nphi, Dint, g0, gain, P_th, Jacobian );
     noise=WhiteNoise(noise_amp,Nphi);
-    Odeint<StepperRoss<rhs_gle> > ode(res_buf,t0,Tstep*Ndet,atol,rtol,dt,dt/10,out,gle);
+    Odeint<StepperSie<rhs_gle> > ode(res_buf,t0,Tstep*Ndet,atol,rtol,dt,dt/100,out,gle);
     ode.integrate();
+    std::cout<<"Integration is done, saving data\n";
     for (int i_det=0; i_det<Ndet; i_det++){
         for (int i_phi=0; i_phi<Nphi; i_phi++){
-            res_RE[i_det*Nphi+i_phi] = out.ysave[i_det][i_phi];
-            res_IM[i_det*Nphi+i_phi] = out.ysave[i_det][i_phi+Nphi];
+            res_RE[i_det*Nphi+i_phi] = out.ysave[i_phi][i_det];
+            res_IM[i_det*Nphi+i_phi] = out.ysave[i_phi+Nphi][i_det];
         }
 
     }
