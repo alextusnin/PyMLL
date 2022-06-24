@@ -57,26 +57,40 @@ void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, co
         res_buf[i_phi+Nphi] = res_IM[i_phi] + noise[i_phi].imag();
     }
     //std::cout<<"In val_RE = " << In_val_RE[0]<<std::endl;
-
-    Output out;
-    rhs_gle gle(Nphi, Dint, g0, gain, P_th );
-    
+    std::cout<<"dt = " << dt << " single step = " << t1 << " Tmax = " << t1*Ndet << "\n";
+    Output out(Ndet);
+    rhs_gle gle(Nphi, Dint, g0, gain, P_th);
+    noise=WhiteNoise(noise_amp,Nphi);
+    Odeint<StepperDopr853<rhs_gle> > ode(res_buf,t0,t1*Ndet,atol,rtol,dt,dt/100,out,gle);
+    ode.integrate();
+    std::cout<<"Integration is done, saving data\n";
     for (int i_det=0; i_det<Ndet; i_det++){
-        power=0.;
-        noise=WhiteNoise(noise_amp,Nphi);
-        Odeint<StepperDopr853<rhs_gle> > ode(res_buf,t0,t1,atol,rtol,dt,dtmin,out,gle);
-        ode.integrate();
         for (int i_phi=0; i_phi<Nphi; i_phi++){
-            res_RE[i_det*Nphi+i_phi] = res_buf[i_phi];
-            res_IM[i_det*Nphi+i_phi] = res_buf[i_phi+Nphi];
-            res_buf[i_phi] += noise[i_phi].real();
-            res_buf[i_phi+Nphi] += noise[i_phi].imag();
-            //power += res_buf[i_phi]*res_buf[i_phi] + res_buf[i_phi+Nphi]*res_buf[i_phi+Nphi];
+            res_RE[i_det*Nphi+i_phi] = out.ysave[i_phi][i_det];
+            res_IM[i_det*Nphi+i_phi] = out.ysave[i_phi+Nphi][i_det];
         }
-//        std::cout<<power << " ";
-        printProgress((i_det+1.)/Ndet);
 
     }
+
+//  Output out;
+//  rhs_gle gle(Nphi, Dint, g0, gain, P_th );
+//  
+//  for (int i_det=0; i_det<Ndet; i_det++){
+//      power=0.;
+//      noise=WhiteNoise(noise_amp,Nphi);
+//      Odeint<StepperDopr853<rhs_gle> > ode(res_buf,t0,t1,atol,rtol,dt,dtmin,out,gle);
+//      ode.integrate();
+//      for (int i_phi=0; i_phi<Nphi; i_phi++){
+//          res_RE[i_det*Nphi+i_phi] = res_buf[i_phi];
+//          res_IM[i_det*Nphi+i_phi] = res_buf[i_phi+Nphi];
+//          res_buf[i_phi] += noise[i_phi].real();
+//          res_buf[i_phi+Nphi] += noise[i_phi].imag();
+//          //power += res_buf[i_phi]*res_buf[i_phi] + res_buf[i_phi+Nphi]*res_buf[i_phi+Nphi];
+//      }
+//        std::cout<<power << " ";
+//        printProgress((i_det+1.)/Ndet);
+
+ //   }
     delete [] noise;
     std::cout<<"Pseudo Spectral Step adaptative Dopri853 from NR3 is finished\n";
 }
@@ -111,6 +125,7 @@ void* Propagate_Stiff(double* In_val_RE, double* In_val_IM,  const double *phi, 
     Output out(Ndet);
     rhs_gle gle(Nphi, Dint, g0, gain, P_th, Jacobian );
     noise=WhiteNoise(noise_amp,Nphi);
+    //Odeint<StepperRoss<rhs_gle> > ode(res_buf,t0,Tstep*Ndet,atol,rtol,dt,dt/100,out,gle);
     Odeint<StepperSie<rhs_gle> > ode(res_buf,t0,Tstep*Ndet,atol,rtol,dt,dt/100,out,gle);
     ode.integrate();
     std::cout<<"Integration is done, saving data\n";

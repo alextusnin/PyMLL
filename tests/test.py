@@ -57,22 +57,22 @@ PhysicalParameters = {'n0' : 1.9,
 GLE = PyMLL.GLE()
 GLE.Init_From_Dict(PhysicalParameters)
 
-simulation_parameters = {'slow_time' : 40e-9,
+simulation_parameters = {'slow_time' : 20e-9,
                          'Number of points' : nn,
                          'noise_level' : 1e-12,
                          'output' : 'map',
-                         'absolute_tolerance' : 1e-10,
-                         'relative_tolerance' : 1e-6,
+                         'absolute_tolerance' : 1e-12,
+                         'relative_tolerance' : 1e-10,
                          'max_internal_steps' : 2000}
 #%%
 G0 = GLE.gain.FitGaussian()[0]/2
 G2 = (1/GLE.gain.FitGaussian()[2]**2)*D1**2*G0
 C=0; Phi = 0;
-A0 = np.sqrt(3/4*(G0-GLE.kappa.max())/(GLE.g0)*abs(D2)/G2)*np.sqrt(hbar*GLE.w0)
+A0 = np.sqrt(3/4*(G0-GLE.kappa.max())/(GLE.g0)*abs(D2)/G2)#*np.sqrt(hbar*GLE.w0)
 B = np.sqrt(3/G2/(1+C**2)*(G0-GLE.kappa.max()))
 Soliton = A0*1/(np.cosh(B*(GLE.phi-np.pi)))**(1+1j*C)
 SolSpectrum = np.fft.fft(Soliton)/1e5#/1e10#/Num_of_modes**2/
-
+SolSpectrum = np.zeros(Num_of_modes,dtype=complex)
 # A0 = 0.00001
 # sigma = 0.1
 # Soliton = A0*1/(np.cosh((GLE.phi-np.pi)/sigma)) #A0*np.exp(-(GLE.phi-np.pi)**2/2/sigma)
@@ -80,9 +80,9 @@ SolSpectrum = np.fft.fft(Soliton)/1e5#/1e10#/Num_of_modes**2/
 #%%
 start_time = time.time()
 # map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-5)
-# map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-5)
+#map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-7)
 # map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-2)
-map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,dt=1e-2)#*np.sqrt((hbar*GLE.w0))
+map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-2)#*np.sqrt((hbar*GLE.w0))
 #%%
 start_time = time.time()
 # for jj in range(1):

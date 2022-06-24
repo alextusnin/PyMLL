@@ -100,7 +100,7 @@ struct rhs_gle{
         fftw_destroy_plan(plan_direct_2_spectrum);
         fftw_destroy_plan(plan_spectrum_2_direct);
     }
-    void operator() (const Doub x, VecDoub &y, VecDoub &dydx) {
+    void operator() (const Doub x, VecDoub_I &y, VecDoub &dydx) {
         for (int i_phi=0; i_phi<Nphi; i_phi++){
             buf_direct[i_phi][0] = y[i_phi];
             buf_direct[i_phi][1] = y[i_phi+Nphi];

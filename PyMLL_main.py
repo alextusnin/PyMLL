@@ -273,8 +273,9 @@ class GLE:
         
         
         #seed = np.zeros(self.N_points,dtype=complex)
-        seed=Seed#*np.sqrt(2*self.g0/self.kappa.max())
-        seed+= self.noise(eps)#*np.sqrt(2*self.g0/self.kappa.max())
+        seed=Seed
+        seed*=np.sqrt(2*self.g0/self.kappa.max())
+        seed+= self.noise(eps)*np.sqrt(2*self.g0/self.kappa.max())
         #plt.plot(abs(seed))
         ### renormalization
         T_rn = (self.kappa.max()/2)*T
@@ -284,7 +285,7 @@ class GLE:
         sol[0,:] = (seed)/self.N_points
         print(np.sum(np.abs(sol[0,:])))
         
-        P_th=self.gain.P_th#/(self.N_points**2)#*(1./(hbar*self.w0))#*(2*self.g0/self.kappa.max())/(self.N_points**2)
+        P_th=self.gain.P_th*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
         print(P_th)
         #%% crtypes defyning
         GLE_core = ctypes.CDLL(os.path.abspath(__file__)[:-14]+'/lib/lib_gle_core.so')
@@ -308,7 +309,8 @@ class GLE:
         In_gain = np.array(self.gain_grid/self.kappa,dtype=ctypes.c_double)
         In_P_th = ctypes.c_double(P_th)
         In_Tmax = ctypes.c_double(t_st)
-        In_g0 = ctypes.c_double(self.g0/(hbar*self.w0)*2/self.kappa.max())
+        #In_g0 = ctypes.c_double(self.g0/(hbar*self.w0)*2/self.kappa.max())
+        In_g0 = ctypes.c_double(1.0)
         In_Nt = ctypes.c_int(int(t_st/dt)+1)
         In_dt = ctypes.c_double(dt)
         In_noise_amp = ctypes.c_double(eps)
@@ -349,9 +351,9 @@ class GLE:
         #sol = np.reshape(In_res_RE,[len(detuning),self.N_points]) + 1j*np.reshape(In_res_IM,[len(detuning),self.N_points])
                     
         if out_param == 'map':
-            return sol#/np.sqrt(2*self.g0/self.kappa)
+            return sol/np.sqrt(2*self.g0/self.kappa)
         elif out_param == 'fin_res':
-            return sol[-1, :]#/np.sqrt(2*self.g0/self.kappa)
+            return sol[-1, :]/np.sqrt(2*self.g0/self.kappa)
         else:
             print ('wrong parameter')
             
@@ -376,7 +378,7 @@ class GLE:
         
         
         #seed = np.zeros(self.N_points,dtype=complex)
-        seed=Seed#*np.sqrt(2*self.g0/self.kappa.max())
+        seed=Seed*np.sqrt(2*self.g0/self.kappa.max())
         seed+= self.noise(eps)#*np.sqrt(2*self.g0/self.kappa.max())
         #plt.plot(abs(seed))
         ### renormalization
@@ -387,8 +389,9 @@ class GLE:
         sol[0,:] = (seed)/self.N_points
         print(np.sum(np.abs(sol[0,:])))
         
-        P_th=self.gain.P_th/(hbar*self.w0)
-        print(P_th)
+        #P_th=self.gain.P_th/(hbar*self.w0)
+        P_th=self.gain.P_th*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
+        print('Nomralized saturation gain is ', P_th)
         #%% crtypes defyning
         GLE_core = ctypes.CDLL(os.path.abspath(__file__)[:-14]+'/lib/lib_gle_core.so')
         GLE_core.Propagate_SAM.restype = ctypes.c_void_p
@@ -411,7 +414,8 @@ class GLE:
         In_gain = np.array(self.gain_grid/self.kappa,dtype=ctypes.c_double)
         In_P_th = ctypes.c_double(P_th)
         In_Tstep = ctypes.c_double(t_st)
-        In_g0 = ctypes.c_double(self.g0*2/self.kappa.max())
+        #In_g0 = ctypes.c_double(self.g0*2/self.kappa.max())
+        In_g0 = ctypes.c_double(1.0)
         In_Nt = ctypes.c_int(int(t_st/dt)+1)
         In_dt = ctypes.c_double(dt)
         In_noise_amp = ctypes.c_double(eps)
@@ -453,8 +457,8 @@ class GLE:
         #sol = np.reshape(In_res_RE,[len(detuning),self.N_points]) + 1j*np.reshape(In_res_IM,[len(detuning),self.N_points])
                     
         if out_param == 'map':
-            return sol#/np.sqrt(2*self.g0/self.kappa)
+            return sol/np.sqrt(2*self.g0/self.kappa)
         elif out_param == 'fin_res':
-            return sol[-1, :]#/np.sqrt(2*self.g0/self.kappa)
+            return sol[-1, :]/np.sqrt(2*self.g0/self.kappa)
         else:
             print ('wrong parameter')
