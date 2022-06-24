@@ -29,9 +29,9 @@ simulation_parameters,map2d_scan=GLE.Init_From_File(data_dir)
 Seed=map2d_scan[-1,:]
 
 #%%
-for jj in range(50):
-    map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=Seed,dt=1e-5)
-    Seed=map2d[-1,:]
+# for jj in range(50):
+#     map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=Seed,dt=1e-5)
+#     Seed=map2d[-1,:]
 
-#%%
-np.save(data_dir +'map2d_50us.npy',map2d)
+# #%%
+# np.save(data_dir +'map2d_50us.npy',map2d)

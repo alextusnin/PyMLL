@@ -31,11 +31,11 @@ extern "C" {
 struct rhs_gle{
     Int Nphi;
     Doub det, P_th, power,g0;
-    MatDoub  LinearJacobian;
+    MatDoub  DispJacobian, GainJacobian;
     double* Dint;
     double* gain;
     Complex i=1i;
-    double buf_re, buf_im;
+    double buf_re, buf_im, dphi;
     fftw_plan plan_direct_2_spectrum;
     fftw_plan plan_spectrum_2_direct;
     fftw_complex *buf_direct, *buf_spectrum;
@@ -63,14 +63,16 @@ struct rhs_gle{
         std::cout<<"Initialization succesfull\n";
     }
 
-    rhs_gle(Int Nphii, const double* Dinti, const double g0i , const double* Gaini, const double P_thi, const double* Jacobiani)
+    rhs_gle(Int Nphii, const double* Dinti, const double g0i , const double* Gaini, const double P_thi, const double* DispJacobiani, const double* GainJacobiani, const double dphii)
     {
         std::cout<<"Initialization started\n";
         Nphi = Nphii;
-        LinearJacobian.assign(2*Nphi,2*Nphi,0.);
+        DispJacobian.assign(2*Nphi,2*Nphi,0.);
+        GainJacobian.assign(2*Nphi,2*Nphi,0.);
         Dint = new (std::nothrow) double[Nphi];
         gain = new (std::nothrow) double[Nphi];
         g0=g0i;
+        dphi = dphii;
         //DispTerm = new (std::nothrow) double[2*Nphi];
         for (int i_phi = 0; i_phi<Nphi; i_phi++){
             Dint[i_phi] = Dinti[i_phi];
@@ -79,7 +81,8 @@ struct rhs_gle{
 
         for (int i_phi = 0; i_phi<2*Nphi; i_phi++){
             for (int j_phi= 0; j_phi<2*Nphi; j_phi++){
-                LinearJacobian[i_phi][j_phi] = Jacobiani[i_phi*2*Nphi+j_phi];
+                DispJacobian[i_phi][j_phi] = DispJacobiani[i_phi*2*Nphi+j_phi];
+                GainJacobian[i_phi][j_phi] = GainJacobiani[i_phi*2*Nphi+j_phi];
             }
         }
         P_th=P_thi;
@@ -130,22 +133,20 @@ struct rhs_gle{
     }
 
     void jacobian(const Doub x, VecDoub_I &y, VecDoub_O &dfdx, MatDoub_O &dfdy) {
-        dfdy = LinearJacobian;
+        dfdy = DispJacobian;
+        int i,j;
+        double power=0.;
+        for (i=0; i< Nphi; i++) power+= (y[i]*y[i] + y[i+Nphi]*y[i+Nphi]); 
+        power*=1/Nphi;
+        for (i=0; i< 2*Nphi; i++) for (j=0; j<2*Nphi; j++) dfdy[i][j] += GainJacobian[i][j]*1/(1+power/P_th);
         for (int i_phi=0; i_phi<Nphi; i_phi++){
             dfdx[i_phi]=0.;
             dfdx[i_phi+Nphi]=0.;
-            dfdy[i_phi][i_phi]-= 2*g0*y[i_phi]*y[i_phi+Nphi];
+            dfdy[i_phi][i_phi]+=-1 -2*g0*y[i_phi]*y[i_phi+Nphi];
             dfdy[i_phi][i_phi+Nphi] -= g0*(y[i_phi]*y[i_phi] + 3*y[i_phi+Nphi]*y[i_phi+Nphi] );
-            dfdy[i_phi+Nphi][i_phi+Nphi] +=  2*g0*y[i_phi]*y[i_phi+Nphi];
+            dfdy[i_phi+Nphi][i_phi+Nphi] +=-1+  2*g0*y[i_phi]*y[i_phi+Nphi];
             dfdy[i_phi+Nphi][i_phi] +=  g0*(3*y[i_phi]*y[i_phi] + y[i_phi+Nphi]*y[i_phi+Nphi] );
 
-//          for (int j_phi=0; j_phi<Nphi; j_phi++){
-//              dfdy[i_phi][j_phi] = LinearJacobian[i_phi][j_phi] - 2*g0*y[i_phi]*y[i_phi+Nphi];
-//              dfdy[i_phi][j_phi+Nphi] = LinearJacobian[i_phi][j_phi+Nphi] - g0*(y[i_phi]*y[i_phi] + 3*y[i_phi+Nphi]*y[i_phi+Nphi] );
-//              dfdy[i_phi+Nphi][j_phi+Nphi] = LinearJacobian[i_phi+Nphi][j_phi+Nphi] + 2*g0*y[i_phi]*y[i_phi+Nphi];
-//              dfdy[i_phi+Nphi][j_phi] = LinearJacobian[i_phi+Nphi][j_phi] + g0*(3*y[i_phi]*y[i_phi] + y[i_phi+Nphi]*y[i_phi+Nphi] );
-
-//          }
 
 
         }
@@ -156,8 +157,9 @@ struct rhs_gle{
 void printProgress (double percentage);
 std::complex<double>* WhiteNoise(const double amp, const int Nphi);
 
-void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint, const double g0, const double* Gain, const double P_th, const int Ndet, const int Nt, const double dt,const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM);
-void* Propagate_Stiff(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint, const double g0, const double* Gain, const double* Jacobian, const double P_th, const int Ndet, const int Nt, const double dt, const double Tmax, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM);
+void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint, const double g0, const double* Gain, const double P_th, const int Ndet, const int Nt, const double dt, const double Tstep, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM);
+void* Propagate_StiffSie(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint, const double g0, const double* Gain, const double* DispJacobian, const double* GainJacobian, const double P_th, const int Ndet, const int Nt, const double dt, const double Tmax, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM);
+void* Propagate_StiffRoss(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint, const double g0, const double* Gain, const double* DispJacobian, const double* GainJacobian, const double P_th, const int Ndet, const int Nt, const double dt, const double Tmax, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM);
 
 
 #ifdef  __cplusplus

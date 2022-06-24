@@ -149,37 +149,140 @@ class GLE:
         self.gain_grid = np.fft.fftshift((a1*np.exp(-(self.frequency_grid-w1)**2/2/sigma1**2)))
         
   
-    def InitLinearJacobian(self):
+    def InitGainJacobian(self,A=[0]):
+        
+        if len(A)==1:
+            A = np.zeros(self.N_points)
+        Pth = self.gain.P_th*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
+            
+        
+        index_1 = np.arange(0,self.N_points)
+        index_2 = np.arange(self.N_points,2*self.N_points)
+        
+        Jacob_Gain1 = np.zeros([self.N_points,self.N_points],dtype=complex)
+        Jacob_Gain2 = np.zeros([self.N_points,self.N_points],dtype=complex)
+        Jacob_Gain3 = np.zeros([self.N_points,self.N_points],dtype=complex)
+        Jacob_Gain4 = np.zeros([self.N_points,self.N_points],dtype=complex)
+        
+        
+        Jacob_Gain_F1 = np.zeros([self.N_points,self.N_points],dtype=complex)
+        Jacob_Gain_F2 = np.zeros([self.N_points,self.N_points],dtype=complex)
+        Jacob_Gain_F3 = np.zeros([self.N_points,self.N_points],dtype=complex)
+        Jacob_Gain_F4 = np.zeros([self.N_points,self.N_points],dtype=complex)
+        
+        Jacob = np.zeros([self.N_points*2,self.N_points*2],dtype=complex)
+        
+        Jacob_Gain_F1[index_1,index_1] = (self.gain_grid/2*1/(1+np.sum(np.abs(A)**2)/Pth)-self.kappa/2) -self.gain_grid/2* (2*np.real(A)**2/Pth*1/(1+np.sum(np.abs(A)**2)/Pth)**2)
+        Jacob_Gain_F2[index_1,index_1]= -self.gain_grid/2* (2*np.real(A)*np.imag(A)/Pth*1/(1+np.sum(np.abs(A)**2)/Pth)**2)
+        Jacob_Gain_F3[index_1,index_1] = (self.gain_grid/2*1/(1+np.sum(np.abs(A)**2)/Pth)-self.kappa/2) -self.gain_grid/2* (2*np.imag(A)**2/Pth*1/(1+np.sum(np.abs(A)**2)/Pth)**2)
+        Jacob_Gain_F4[index_1,index_1]= -self.gain_grid/2* (2*np.real(A)*np.imag(A)/Pth*1/(1+np.sum(np.abs(A)**2)/Pth)**2)
+        
+        
+        for column_ind in index_1:
+            Jacob_Gain1[:,column_ind] = np.fft.fft(Jacob_Gain_F1[:,column_ind])
+            Jacob_Gain2[:,column_ind] = np.fft.fft(Jacob_Gain_F2[:,column_ind])
+            Jacob_Gain3[:,column_ind] = np.fft.fft(Jacob_Gain_F3[:,column_ind])
+            Jacob_Gain4[:,column_ind] = np.fft.fft(Jacob_Gain_F4[:,column_ind])
+        
+        
+        for column_ind in index_1:
+            Jacob_Gain_F1[:,column_ind] = np.fft.fft(np.conj(Jacob_Gain1.T)[:,column_ind])
+            Jacob_Gain_F2[:,column_ind] = np.fft.fft(np.conj(Jacob_Gain2.T)[:,column_ind])
+            Jacob_Gain_F3[:,column_ind] = np.fft.fft(np.conj(Jacob_Gain3.T)[:,column_ind])
+            Jacob_Gain_F4[:,column_ind] = np.fft.fft(np.conj(Jacob_Gain4.T)[:,column_ind])
+        
+        
+        
+        Jacob_Gain1 = np.conj(Jacob_Gain_F1.T)/self.N_points
+        Jacob_Gain2 = np.conj(Jacob_Gain_F2.T)/self.N_points
+        Jacob_Gain3 = np.conj(Jacob_Gain_F3.T)/self.N_points
+        Jacob_Gain4 = np.conj(Jacob_Gain_F4.T)/self.N_points
+        
+        
+        
+        
+        
+        Jacob[:self.N_points,:self.N_points] = Jacob_Gain1
+        Jacob[:self.N_points,self.N_points:] = Jacob_Gain2
+        
+        Jacob[self.N_points:,self.N_points:] =  Jacob_Gain4
+        Jacob[self.N_points:,:self.N_points] = Jacob_Gain3
+        
+        
+        return np.real(Jacob)
+    def InitMaxGainJacobian(self):
+        
+       
+        
+        index_1 = np.arange(0,self.N_points)
+        index_2 = np.arange(self.N_points,2*self.N_points)
+        
+        Jacob_Gain1 = np.zeros([self.N_points,self.N_points],dtype=complex)
+       
+        
+        
+        Jacob_Gain_F1 = np.zeros([self.N_points,self.N_points],dtype=complex)
+       
+        
+        Jacob = np.zeros([self.N_points*2,self.N_points*2],dtype=complex)
+        
+        Jacob_Gain_F1[index_1,index_1] = (self.gain_grid/2) 
+       
+        
+        
+        for column_ind in index_1:
+            Jacob_Gain1[:,column_ind] = np.fft.fft(Jacob_Gain_F1[:,column_ind])
+            
+        
+        for column_ind in index_1:
+            Jacob_Gain_F1[:,column_ind] = np.fft.fft(np.conj(Jacob_Gain1.T)[:,column_ind])
+            
+        
+        
+        Jacob_Gain1 = np.conj(Jacob_Gain_F1.T)/self.N_points
+        
+        
+        
+        
+        
+        Jacob[:self.N_points,:self.N_points] = Jacob_Gain1
+        Jacob[self.N_points:,self.N_points:] =  Jacob_Gain1
+        
+        
+        
+        return np.real(Jacob)
+    
+    def InitDispJacobian(self):
         
         
         index_1 = np.arange(0,self.N_points)
         index_2 = np.arange(self.N_points,2*self.N_points)
         
-        Jacob_Gain = np.zeros([self.N_points,self.N_points],dtype=complex)
+        
         Jacob_Disp = np.zeros([self.N_points,self.N_points],dtype=complex)
         
-        Jacob_Gain_F = np.zeros([self.N_points,self.N_points],dtype=complex)
+        
         Jacob_Disp_F = np.zeros([self.N_points,self.N_points],dtype=complex)
         Jacob = np.zeros([self.N_points*2,self.N_points*2],dtype=complex)
         
-        Jacob_Gain_F[index_1,index_1] = (self.gain_grid/2-self.kappa/2)
+        
         Jacob_Disp_F[index_1,index_1] = -self.Dint[index_1]
         
         for column_ind in index_1:
-            Jacob_Gain[:,column_ind] = np.fft.fft(Jacob_Gain_F[:,column_ind])
+        
             Jacob_Disp[:,column_ind] = np.fft.fft(Jacob_Disp_F[:,column_ind])
         for column_ind in index_1:
-            Jacob_Gain_F[:,column_ind] = np.fft.fft(np.conj(Jacob_Gain.T)[:,column_ind])
+        
             Jacob_Disp_F[:,column_ind] = np.fft.fft(np.conj(Jacob_Disp.T)[:,column_ind])
         
-        Jacob_Gain = np.conj(Jacob_Gain_F.T)/self.N_points
+        
         Jacob_Disp = np.conj(Jacob_Disp_F.T)/self.N_points
         
         
         
-        Jacob[:self.N_points,:self.N_points] = Jacob_Gain
+        
         Jacob[:self.N_points,self.N_points:] = -Jacob_Disp
-        Jacob[self.N_points:,self.N_points:] =  Jacob[:self.N_points,:self.N_points]
+        
         Jacob[self.N_points:,:self.N_points] = -Jacob[:self.N_points,self.N_points:]
         
         return np.real(Jacob)
@@ -194,10 +297,10 @@ class GLE:
         Jacob[index_2,index_2] = 2*np.real(Psi)*np.imag(Psi)
         Jacob[index_2,index_1] = np.abs(Psi)**2+2*np.real(Psi)**2
         
-        return Jacob*self.g0/(hbar*self.w0)
+        return Jacob
     def NewtonRaphson(self,A_input,tol=1e-5,max_iter=50):
-        A_guess = np.fft.ifft(A_input)*self.N_points
-        LinearJacob = self.InitLinearJacobian()
+        A_guess = np.fft.ifft(A_input)*np.sqrt(2*self.g0/self.kappa.max())/self.N_points
+        DispJacob = (self.InitDispJacobian())*2/self.kappa.max()
         index_1 = np.arange(0,self.N_points)
         index_2 = np.arange(self.N_points,2*self.N_points)
         Aprev = np.zeros(2*self.N_points)
@@ -210,10 +313,11 @@ class GLE:
         counter =0
         diff_array=[]
         while diff>tol:
-            buf = np.dot(LinearJacob,Aprev)
-            buf[index_1]-=self.g0/(self.w0*hbar)*(Aprev[index_1]*Aprev[index_1]+Aprev[index_2]*Aprev[index_2])*Aprev[index_2]
-            buf[index_2]+=self.g0/(self.w0*hbar)*(Aprev[index_1]*Aprev[index_1]+Aprev[index_2]*Aprev[index_2])*Aprev[index_1]
-            J=LinearJacob+self.InitNonlinearJacobian(Aprev[index_1]+1j*Aprev[index_2])
+            GainJacob=self.InitGainJacobian(Aprev[index_1]+1j*Aprev[index_2])*2/self.kappa.max()
+            buf = np.dot(DispJacob+GainJacob,Aprev)
+            buf[index_1]-=(Aprev[index_1]*Aprev[index_1]+Aprev[index_2]*Aprev[index_2])*Aprev[index_2]
+            buf[index_2]+=(Aprev[index_1]*Aprev[index_1]+Aprev[index_2]*Aprev[index_2])*Aprev[index_1]
+            J=DispJacob+GainJacob+self.InitNonlinearJacobian(Aprev[index_1]+1j*Aprev[index_2])
             Ak = Aprev - np.linalg.solve(J,buf)
             
             diff = np.sqrt(abs((Ak-Aprev).dot(np.conj(Ak-Aprev))/(Ak.dot(np.conj(Ak)))))
@@ -229,16 +333,40 @@ class GLE:
                 res = np.zeros(self.N_points,dtype=complex)
                 res = Ak[index_1] + 1j*Ak[index_2]
                 
-                return np.fft.fft(res), diff_array
+                return np.fft.fft(res)/np.sqrt(2*self.g0/self.kappa.max()), diff_array
                 break
         print("Converged in " + str(counter) + " iterations, relative error is " + str(diff))
         res = np.zeros(self.N_points,dtype=complex)
         res = Ak[index_1] + 1j*Ak[index_2]
         
         
-        return np.fft.fft(res), diff_array
+        return np.fft.fft(res)/np.sqrt(2*self.g0/self.kappa.max()), diff_array
             
+    def LinearStability(self,solution,plot_eigvals=True):
+        DispJacob = (self.InitDispJacobian())*2/self.kappa.max()
         
+        A_guess = np.fft.ifft(solution)*np.sqrt(2*self.g0/self.kappa.max())/self.N_points
+        index_1 = np.arange(0,self.N_points)
+        index_2 = np.arange(self.N_points,2*self.N_points)
+        A = np.zeros(2*self.N_points)
+        A[:self.N_points] = np.real(A_guess)
+        A[index_2] = np.imag(A_guess)
+        GainJacob=self.InitGainJacobian(A[index_1]+1j*A[index_2])*2/self.kappa.max()
+        J=DispJacob+GainJacob+self.InitNonlinearJacobian(A[index_1]+1j*A[index_2])
+        
+        eig_vals,eig_vec = np.linalg.eig(J)
+        
+        eigen_vectors = np.zeros([self.N_points,2*self.N_points],dtype=complex)
+        if plot_eigvals==True:
+            plt.scatter(np.real(eig_vals),np.imag(eig_vals))
+            plt.xlabel('Real part')
+            plt.ylabel('Imaginary part')
+            
+        for jj in range(2*self.N_points):
+            eigen_vectors[:,jj]=(eig_vec[:self.N_points,jj]).T
+            eigen_vectors[:,jj]=np.fft.fft(eigen_vectors[:,jj])
+        
+        return eig_vals[:-1]*self.kappa.max()/2, np.fft.fft(eigen_vectors)/np.sqrt(2*self.g0/self.kappa.max())
         
         
     def Save_Data(self,map2d,Simulation_Params,directory='./'):
@@ -275,7 +403,7 @@ class GLE:
         #seed = np.zeros(self.N_points,dtype=complex)
         seed=Seed
         seed*=np.sqrt(2*self.g0/self.kappa.max())
-        seed+= self.noise(eps)*np.sqrt(2*self.g0/self.kappa.max())
+        seed+= self.noise(eps)#*np.sqrt(2*self.g0/self.kappa.max())
         #plt.plot(abs(seed))
         ### renormalization
         T_rn = (self.kappa.max()/2)*T
@@ -308,7 +436,7 @@ class GLE:
         In_Dint = np.array(self.Dint*2/self.kappa,dtype=ctypes.c_double)
         In_gain = np.array(self.gain_grid/self.kappa,dtype=ctypes.c_double)
         In_P_th = ctypes.c_double(P_th)
-        In_Tmax = ctypes.c_double(t_st)
+        In_Ttotal = ctypes.c_double(T_rn)
         #In_g0 = ctypes.c_double(self.g0/(hbar*self.w0)*2/self.kappa.max())
         In_g0 = ctypes.c_double(1.0)
         In_Nt = ctypes.c_int(int(t_st/dt)+1)
@@ -340,7 +468,7 @@ class GLE:
         In_res_IM_p = In_res_IM.ctypes.data_as(double_p)
         #%%running simulations
         if self.n2t==0:
-            GLE_core.Propagate_SAM(In_val_RE_p, In_val_IM_p, In_phi_p, In_Dint_p, In_g0, In_gain_p, In_P_th, In_Ndet, In_Nt, In_dt, In_atol, In_rtol, In_Nphi, In_noise_amp, In_res_RE_p, In_res_IM_p)
+            GLE_core.Propagate_SAM(In_val_RE_p, In_val_IM_p, In_phi_p, In_Dint_p, In_g0, In_gain_p, In_P_th, In_Ndet, In_Nt, In_dt,  In_Ttotal, In_atol, In_rtol, In_Nphi, In_noise_amp, In_res_RE_p, In_res_IM_p)
         else:
             #GLE_core.PropagateThermalSAM(In_val_RE_p, In_val_IM_p, In_f_RE_p, In_f_IM_p, In_det_p, In_J, In_t_th, In_kappa, In_n2, In_n2t, In_phi_p, In_Dint_p, In_Ndet, In_Nt, In_dt, In_atol, In_rtol, In_Nphi, In_noise_amp, In_res_RE_p, In_res_IM_p)
             pass
@@ -357,7 +485,7 @@ class GLE:
         else:
             print ('wrong parameter')
             
-    def Propagate_PseudoSpectralStiffCLIB(self, simulation_parameters, Seed=[0], dt=5e-4):
+    def Propagate_PseudoSpectralStiffCLIB(self, simulation_parameters, Solver='Sie', Seed=[0], dt=5e-4):
         #start_time = time.time()
         T = simulation_parameters['slow_time']
         out_param = simulation_parameters['output']
@@ -368,18 +496,23 @@ class GLE:
         reltol = simulation_parameters['relative_tolerance']
         nn = simulation_parameters['Number of points']
         
-        Jacobian = self.InitLinearJacobian()*2/self.kappa.max()
         
-        JacobianIn = np.zeros((2*self.N_points)**2)
-        index = np.arange(2*self.N_points)
-        for ii in range(2*self.N_points):
-            JacobianIn[ii*2*self.N_points + index] = Jacobian[ii,index]
         
         
         
         #seed = np.zeros(self.N_points,dtype=complex)
         seed=Seed*np.sqrt(2*self.g0/self.kappa.max())
-        seed+= self.noise(eps)#*np.sqrt(2*self.g0/self.kappa.max())
+        seed+= self.noise(eps)*np.sqrt(2*self.g0/self.kappa.max())
+        
+        DispJacobian = self.InitDispJacobian()*2/self.kappa.max()
+        GainJacobian = self.InitMaxGainJacobian()*2/self.kappa.max()
+        
+        DispJacobianIn = np.zeros((2*self.N_points)**2)
+        GainJacobianIn = np.zeros((2*self.N_points)**2)
+        index = np.arange(2*self.N_points)
+        for ii in range(2*self.N_points):
+            DispJacobianIn[ii*2*self.N_points + index] = DispJacobian[ii,index]
+            GainJacobianIn[ii*2*self.N_points + index] = GainJacobian[ii,index]
         #plt.plot(abs(seed))
         ### renormalization
         T_rn = (self.kappa.max()/2)*T
@@ -407,7 +540,8 @@ class GLE:
         In_Nphi = ctypes.c_int(self.N_points)
         In_atol = ctypes.c_double(abtol)
         In_rtol = ctypes.c_double(reltol)
-        In_Jacobian = np.array(JacobianIn,dtype=ctypes.c_double)
+        In_DispJacobian = np.array(DispJacobianIn,dtype=ctypes.c_double)
+        In_GainJacobian = np.array(GainJacobianIn,dtype=ctypes.c_double)
         
         In_Ndet = ctypes.c_int(nn)
         In_Dint = np.array(self.Dint*2/self.kappa,dtype=ctypes.c_double)
@@ -440,16 +574,18 @@ class GLE:
         
         In_Dint_p = In_Dint.ctypes.data_as(double_p)
         In_gain_p = In_gain.ctypes.data_as(double_p)
-        In_Jacobian_p = In_Jacobian.ctypes.data_as(double_p)
+        In_DispJacobian_p = In_DispJacobian.ctypes.data_as(double_p)
+        In_GainJacobian_p = In_GainJacobian.ctypes.data_as(double_p)
         
         In_res_RE_p = In_res_RE.ctypes.data_as(double_p)
         In_res_IM_p = In_res_IM.ctypes.data_as(double_p)
         #%%running simulations
-        if self.n2t==0:
-            GLE_core.Propagate_Stiff(In_val_RE_p, In_val_IM_p, In_phi_p, In_Dint_p, In_g0, In_gain_p, In_P_th, In_Jacobian_p, In_Ndet, In_Nt, In_dt, In_Tstep, In_atol, In_rtol, In_Nphi, In_noise_amp, In_res_RE_p, In_res_IM_p)
-        else:
-            #GLE_core.PropagateThermalSAM(In_val_RE_p, In_val_IM_p, In_f_RE_p, In_f_IM_p, In_det_p, In_J, In_t_th, In_kappa, In_n2, In_n2t, In_phi_p, In_Dint_p, In_Ndet, In_Nt, In_dt, In_atol, In_rtol, In_Nphi, In_noise_amp, In_res_RE_p, In_res_IM_p)
-            pass
+        if Solver=='Sie':
+            GLE_core.Propagate_StiffSie(In_val_RE_p, In_val_IM_p, In_phi_p, In_Dint_p, In_g0, In_gain_p, In_P_th, In_DispJacobian_p, In_GainJacobian_p, In_Ndet, In_Nt, In_dt, In_Tstep, In_atol, In_rtol, In_Nphi, In_noise_amp, In_res_RE_p, In_res_IM_p)
+        elif Solver=='Ross':
+            GLE_core.Propagate_StiffRoss(In_val_RE_p, In_val_IM_p, In_phi_p, In_Dint_p, In_g0, In_gain_p, In_P_th, In_Jacobian_p, In_GainJacobian_p, In_Ndet, In_Nt, In_dt, In_Tstep, In_atol, In_rtol, In_Nphi, In_noise_amp, In_res_RE_p, In_res_IM_p)
+            
+        
         ind_modes = np.arange(self.N_points)
         for ii in range(0,nn):
             sol[ii,ind_modes] = np.fft.fft(In_res_RE[ii*self.N_points+ind_modes] + 1j*In_res_IM[ii*self.N_points+ind_modes])
