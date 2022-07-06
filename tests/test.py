@@ -20,7 +20,7 @@ import time
 from scipy.constants import c,hbar
 
 
-FSR = 500e9
+FSR = 10e9
 D1 = 2*np.pi*FSR
 Num_of_modes = 2**8
 D2 = 2*np.pi*4*1e6#-1*beta2*L/Tr*D1**2 ## From beta2 to D2
@@ -81,8 +81,8 @@ SolSpectrum = np.fft.fft(Soliton)#/1e10#/Num_of_modes**2/
 #%%
 start_time = time.time()
 # map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-5)
-map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-12)
-# map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-2)
+#map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-12)
+#map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-2)
 #map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,Seed=SolSpectrum,Solver='Sie',dt=1e-2)#*np.sqrt((hbar*GLE.w0))
 print("--- %s seconds ---" % (time.time() - start_time))
 #%%
