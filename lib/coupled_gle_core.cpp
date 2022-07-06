@@ -1,4 +1,4 @@
-#include "gle_core.hpp"
+#include "coupled_gle_core.hpp"
 
 void printProgress (double percentage)
 {
@@ -39,7 +39,7 @@ std::complex<double>* WhiteNoise(const double amp, const int Nphi)
     return res;
 }
 
-void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint1, const double* Dint2, const double* kappa, const double J, const double g0, const double* gain, const double P_th,  const int Ndet, const int Nt, const double dt, const double Ttotal, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM)
+void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint1, const double* Dint2, const double* kappa, const double J, const double g0, const double* gain1, const double* gain2, const double P_th,  const int Ndet, const int Nt, const double dt, const double Ttotal, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM)
     
 {
     
@@ -63,7 +63,7 @@ void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, co
         res_buf[i_phi+Nphi] = res_IM[i_phi] + noise[i_phi].imag();
     }
     Output out(Ndet);
-    rhs_gle gle(Nphi, Dint, g0, gain, P_th);
+    rhs_gle gle(Nphi, Dint1, Dint2, kappa, J,  g0, gain1, gain2, P_th);
     noise=WhiteNoise(noise_amp,Nphi);
     Odeint<StepperDopr853<rhs_gle> > ode(res_buf,t0,Ttotal,atol,rtol,dt,dt/1000,out,gle);
     ode.integrate();

@@ -1,1 +1,2 @@
 g++-7 -fPIC -shared -lfftw3 -lm -O3 -o lib_gle_core.so gle_core.cpp 
+g++-7 -fPIC -shared -lfftw3 -lm -O3 -o lib_coupled_gle_core.so coupled_gle_core.cpp

@@ -151,7 +151,7 @@ struct rhs_coupled_gle{
 void printProgress (double percentage);
 std::complex<double>* WhiteNoise(const double amp, const int Nphi);
 
-void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint1, const double* Dint2, const double* kappa, const double J, const double g0, const double* Gain, const double P_th, const int Ndet, const int Nt, const double dt, const double Tstep, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM);
+void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint1, const double* Dint2, const double* kappa, const double J, const double g0, const double* Gain1, const double* Gain2,  const double P_th, const int Ndet, const int Nt, const double dt, const double Tstep, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM);
 
 
 #ifdef  __cplusplus
