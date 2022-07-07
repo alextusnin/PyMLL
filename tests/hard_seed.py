@@ -19,7 +19,7 @@ import PyMLL_main as PyMLL
 import time
 from scipy.constants import c,hbar
 
-data_dir = '/home/alextusnin/Documents/MLL/simulations/data/20.0_-0.1_fancy_collision/'
+data_dir = '/home/alextusnin/Documents/MLL/simulations/data/10.0_1.0_single_soliton/'
 
 map2d_scan = np.zeros([],dtype=complex)#np.load('map2d_scan.npy')
 simulation_parameters={}
