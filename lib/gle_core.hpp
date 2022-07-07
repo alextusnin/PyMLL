@@ -114,7 +114,7 @@ struct rhs_gle{
             power+= buf_spectrum[i_phi][1]*buf_spectrum[i_phi][1] + buf_spectrum[i_phi][0]*buf_spectrum[i_phi][0];
         }
         power=power;///Nphi/Nphi;
-//      std::cout<< power << " ";
+//        std::cout<< power << " ";
 //      std::this_thread::sleep_for(3ms);
         for (int i_phi=0; i_phi<Nphi; i_phi++){
             buf_re = Dint[i_phi]*buf_spectrum[i_phi][1] + gain[i_phi]*buf_spectrum[i_phi][0]*1/(1+power/P_th) ;

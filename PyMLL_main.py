@@ -15,7 +15,7 @@ class Gain:
         self.wavelength = wavelength_mat['filtered_x'][0]*1e-9
         self.frequency = c/self.wavelength
         self.gain_rad_Hz = 0
-        self.P_th=0.00008#W
+        self.P_th=0.0008#W
         
     def Transform_to_rad_Hz(self,group_index):
         self.gain_rad_Hz = c*self.gain_data/group_index
@@ -153,7 +153,7 @@ class GLE:
         
         if len(A)==1:
             A = np.zeros(self.N_points)
-        Pth = self.gain.P_th*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
+        Pth = self.gain.P_th#*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
             
         
         index_1 = np.arange(0,self.N_points)
@@ -299,7 +299,7 @@ class GLE:
         
         return Jacob
     def NewtonRaphson(self,A_input,tol=1e-5,max_iter=50):
-        A_guess = np.fft.ifft(A_input)*np.sqrt(2*self.g0/self.kappa.max())/self.N_points
+        A_guess = np.fft.ifft(A_input)#*np.sqrt(2*self.g0/self.kappa.max())/self.N_points
         DispJacob = (self.InitDispJacobian())*2/self.kappa.max()
         index_1 = np.arange(0,self.N_points)
         index_2 = np.arange(self.N_points,2*self.N_points)
@@ -315,9 +315,9 @@ class GLE:
         while diff>tol:
             GainJacob=self.InitGainJacobian(Aprev[index_1]+1j*Aprev[index_2])*2/self.kappa.max()
             buf = np.dot(DispJacob+GainJacob,Aprev)
-            buf[index_1]-=(Aprev[index_1]*Aprev[index_1]+Aprev[index_2]*Aprev[index_2])*Aprev[index_2]
-            buf[index_2]+=(Aprev[index_1]*Aprev[index_1]+Aprev[index_2]*Aprev[index_2])*Aprev[index_1]
-            J=DispJacob+GainJacob+self.InitNonlinearJacobian(Aprev[index_1]+1j*Aprev[index_2])
+            buf[index_1]-=self.g0/(hbar*self.w0)*2/self.kappa.max()*(Aprev[index_1]*Aprev[index_1]+Aprev[index_2]*Aprev[index_2])*Aprev[index_2]
+            buf[index_2]+=self.g0/(hbar*self.w0)*2/self.kappa.max()*(Aprev[index_1]*Aprev[index_1]+Aprev[index_2]*Aprev[index_2])*Aprev[index_1]
+            J=DispJacob+GainJacob+self.InitNonlinearJacobian(Aprev[index_1]+1j*Aprev[index_2])*self.g0/(hbar*self.w0)*2/self.kappa.max()
             Ak = Aprev - np.linalg.solve(J,buf)
             
             diff = np.sqrt(abs((Ak-Aprev).dot(np.conj(Ak-Aprev))/(Ak.dot(np.conj(Ak)))))
@@ -333,7 +333,8 @@ class GLE:
                 res = np.zeros(self.N_points,dtype=complex)
                 res = Ak[index_1] + 1j*Ak[index_2]
                 
-                return np.fft.fft(res)/np.sqrt(2*self.g0/self.kappa.max()), diff_array
+                #return np.fft.fft(res)/np.sqrt(2*self.g0/self.kappa.max()), diff_array
+                return np.fft.fft(res), diff_array
                 break
         print("Converged in " + str(counter) + " iterations, relative error is " + str(diff))
         res = np.zeros(self.N_points,dtype=complex)
@@ -401,27 +402,30 @@ class GLE:
         
         
         #seed = np.zeros(self.N_points,dtype=complex)
+        print(np.sum(np.abs(Seed[:])))
         seed=Seed
-        seed*=np.sqrt(2*self.g0/self.kappa.max())
+        print(np.sum(np.abs(seed[:])))
+        #seed*=np.sqrt(2*self.g0/self.kappa.max())
         seed+= self.noise(eps)#*np.sqrt(2*self.g0/self.kappa.max())
+        print(np.sum(np.abs(seed[:])))
         #plt.plot(abs(seed))
         ### renormalization
         T_rn = (self.kappa.max()/2)*T
         t_st = np.float_(T_rn)/nn
         
         sol = np.ndarray(shape=(nn, self.N_points), dtype='complex') # define an array to store the data
-        sol[0,:] = (seed)/self.N_points
-        print(np.sum(np.abs(sol[0,:])))
+        sol[0,:] = (seed)#/self.N_points
+        print(np.sum(np.abs(sol[0,:]))**2)
         
-        P_th=self.gain.P_th*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
-        print(P_th)
+        P_th=self.gain.P_th#*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
+        print('Saturation power is',P_th)
         #%% crtypes defyning
         GLE_core = ctypes.CDLL(os.path.abspath(__file__)[:-14]+'/lib/lib_gle_core.so')
         GLE_core.Propagate_SAM.restype = ctypes.c_void_p
         #%% defining the ctypes variables
         
         A = np.fft.ifft(seed)#*self.N_points
-        
+        print(np.sum(np.abs(A[:]))**2)
         #plt.plot(abs(A))
         
         In_val_RE = np.array(np.real(A),dtype=ctypes.c_double)
@@ -436,9 +440,9 @@ class GLE:
         In_Dint = np.array(self.Dint*2/self.kappa,dtype=ctypes.c_double)
         In_gain = np.array(self.gain_grid/self.kappa,dtype=ctypes.c_double)
         In_P_th = ctypes.c_double(P_th)
-        In_Ttotal = ctypes.c_double(T_rn)
-        #In_g0 = ctypes.c_double(self.g0/(hbar*self.w0)*2/self.kappa.max())
-        In_g0 = ctypes.c_double(1.0)
+        In_Ttotal = ctypes.c_double(T_rn/nn)
+        In_g0 = ctypes.c_double(self.g0/(hbar*self.w0)*2/self.kappa.max())
+        #In_g0 = ctypes.c_double(1.0)
         In_Nt = ctypes.c_int(int(t_st/dt)+1)
         In_dt = ctypes.c_double(dt)
         In_noise_amp = ctypes.c_double(eps)
@@ -479,9 +483,9 @@ class GLE:
         #sol = np.reshape(In_res_RE,[len(detuning),self.N_points]) + 1j*np.reshape(In_res_IM,[len(detuning),self.N_points])
                     
         if out_param == 'map':
-            return sol/np.sqrt(2*self.g0/self.kappa)
+            return sol#/np.sqrt(2*self.g0/self.kappa)
         elif out_param == 'fin_res':
-            return sol[-1, :]/np.sqrt(2*self.g0/self.kappa)
+            return sol[-1, :]#/np.sqrt(2*self.g0/self.kappa)
         else:
             print ('wrong parameter')
             
