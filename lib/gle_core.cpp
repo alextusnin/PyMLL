@@ -39,65 +39,21 @@ std::complex<double>* WhiteNoise(const double amp, const int Nphi)
     return res;
 }
 
-//  void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint, const double g0, const double* gain, const double P_th,  const int Ndet, const int Nt, const double dt, const double Ttotal, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM)
-//      
-//  {
-//      
-//      std::cout<<"Pseudo Spectral Step adaptative Dopri853 from NR3 is running\n";
-//      std::complex<double>* noise = new (std::nothrow) std::complex<double>[Nphi];
-//      VecDoub res_buf(2*Nphi);
-//      double power = 0.;
-//      double t0=0., t1=Ttotal;
-//      double dtmin, dtmax;
-//      dtmax = t1-t0;
-//      if (dtmax < dt) {dtmax/=10; dtmin=dtmax/10;}
-//      else {dtmax = dt; dtmin = dt/10;}
-//      //std::cout<<"dtmax = " << dtmax << " single step = " << Tstep << " Tmax = " << Tstep*Ndet << "\n";
-//      std::cout<<"dt = " << dt << " single step = " << Ttotal << " Tmax = " << Ttotal << "\n";
-
-//      noise=WhiteNoise(noise_amp,Nphi);
-//      for (int i_phi = 0; i_phi<Nphi; i_phi++){
-//          res_RE[i_phi] = In_val_RE[i_phi];
-//          res_IM[i_phi] = In_val_IM[i_phi];
-//          res_buf[i_phi] = res_RE[i_phi] + noise[i_phi].real();
-//          res_buf[i_phi+Nphi] = res_IM[i_phi] + noise[i_phi].imag();
-//      }
-//      Output out(Ndet);
-//      rhs_gle gle(Nphi, Dint, g0, gain, P_th);
-//      noise=WhiteNoise(noise_amp,Nphi);
-//      Odeint<StepperDopr853<rhs_gle> > ode(res_buf,t0,Ttotal,atol,rtol,dt,dt/10,out,gle);
-//      std::this_thread::sleep_for(30ms);
-//      ode.integrate();
-//      std::this_thread::sleep_for(30ms);
-//      std::cout<<"Integration is done, saving data\n";
-//      for (int i_det=0; i_det<Ndet; i_det++){
-//          for (int i_phi=0; i_phi<Nphi; i_phi++){
-//              res_RE[i_det*Nphi+i_phi] = out.ysave[i_phi][i_det];
-//              res_IM[i_det*Nphi+i_phi] = out.ysave[i_phi+Nphi][i_det];
-//          }
-
-//      }
-
-//      delete [] noise;
-//      std::cout<<"Pseudo Spectral Step adaptative Dopri853 from NR3 is finished\n";
-//  }
-void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint, const double g0, const double* gain, const double P_th,  const int Ndet, const int Nt, const double dt, const double Tstep, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM)
+void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint, const double g0, const double* gain, const double P_th,  const int Ndet, const int Nt, const double dt, const double Ttotal, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM)
     
 {
     
-    std::cout<<"Pseudo Step-adaptrative stiff from NR3 is running\n";
+    std::cout<<"Pseudo Spectral Step adaptative Dopri853 from NR3 is running\n";
     std::complex<double>* noise = new (std::nothrow) std::complex<double>[Nphi];
-    //const double t0=0., t1=(Nt-1)*dt, dtmin=0.;
-    double t0=0., t1=Tstep;
+    VecDoub res_buf(2*Nphi);
+    double power = 0.;
+    double t0=0., t1=Ttotal;
     double dtmin, dtmax;
     dtmax = t1-t0;
     if (dtmax < dt) {dtmax/=10; dtmin=dtmax/10;}
     else {dtmax = dt; dtmin = dt/10;}
     //std::cout<<"dtmax = " << dtmax << " single step = " << Tstep << " Tmax = " << Tstep*Ndet << "\n";
-    std::cout<<"dt = " << dt << " single step = " << Tstep << " Tmax = " << Tstep*Ndet << "\n";
-
-    VecDoub res_buf(2*Nphi);
-    double power = 0.;
+    std::cout<<"dt = " << dt << " single step = " << Ttotal/Ndet << " Tmax = " << Ttotal << "\n";
 
     noise=WhiteNoise(noise_amp,Nphi);
     for (int i_phi = 0; i_phi<Nphi; i_phi++){
@@ -105,17 +61,11 @@ void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, co
         res_IM[i_phi] = In_val_IM[i_phi];
         res_buf[i_phi] = res_RE[i_phi] + noise[i_phi].real();
         res_buf[i_phi+Nphi] = res_IM[i_phi] + noise[i_phi].imag();
-        //power+= res_buf[i_phi]* res_buf[i_phi] +  res_buf[i_phi+Nphi]* res_buf[i_phi+Nphi];
-        power+= res_RE[i_phi]* res_RE[i_phi] +  res_IM[i_phi]* res_IM[i_phi];
     }
-    power*=Nphi;
-
-    std::cout<<"In power = " << power<<std::endl;
-
     Output out(Ndet);
-    rhs_gle gle(Nphi, Dint, g0, gain, P_th );
+    rhs_gle gle(Nphi, Dint, g0, gain, P_th);
     noise=WhiteNoise(noise_amp,Nphi);
-    Odeint<StepperDopr853<rhs_gle> > ode(res_buf,t0,Tstep*Ndet,atol,rtol,dt,dt/1000,out,gle);
+    Odeint<StepperDopr853<rhs_gle> > ode(res_buf,t0,Ttotal,atol,rtol,dt,dt/1000,out,gle);
     ode.integrate();
     std::cout<<"Integration is done, saving data\n";
     for (int i_det=0; i_det<Ndet; i_det++){
@@ -125,10 +75,11 @@ void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, co
         }
 
     }
-    
+
     delete [] noise;
-    std::cout<<"Pseudo Spectral step-adaptative from NR3 is finished\n";
+    std::cout<<"Pseudo Spectral Step adaptative Dopri853 from NR3 is finished\n";
 }
+
 void* Propagate_StiffSie(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint, const double g0, const double* gain, const double* DispJacobian, const double* GainJacobian, const double P_th,  const int Ndet, const int Nt, const double dt, const double Tstep, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM)
     
 {

@@ -12,7 +12,7 @@ import sys,os
 curr_dir = os.getcwd()
 PyMLL_dir = os.path.dirname(curr_dir)
 sys.path.append(PyMLL_dir)
-sys.path.append('/home/tusnin/Documents/Projects/PyCORe')
+sys.path.append('/home/alextusnin/Documents/Projects/PyCORe')
 import PyCORe_main as pcm
 
 import PyMLL_main as PyMLL
@@ -20,21 +20,20 @@ import time
 from scipy.constants import c,hbar
 
 
-<<<<<<< HEAD
+
 FSR = 50e9
-=======
-FSR = 10e9
->>>>>>> main
+
 D1 = 2*np.pi*FSR
 Num_of_modes = 2**12
-D2 = 2*np.pi*0.5*1e6#-1*beta2*L/Tr*D1**2 ## From beta2 to D2
-D3 = -2*np.pi*25e3*0
+D2 = -2*np.pi*0.5*1e6#-1*beta2*L/Tr*D1**2 ## From beta2 to D2
+D3 = -2*np.pi*25e3
 D4 = -2*np.pi*1e3*0
 D5 = 2*np.pi*54*0
 D6 = -2*np.pi*1*0
 mu = np.arange(-Num_of_modes/2,Num_of_modes/2)
 
 Dint = (mu**2*D2/2 + mu**3*D3/6+mu**4*D4/24+mu**5*D5/120+mu**6*D6/720)
+#Dint[Num_of_modes//2+400]+=500e8
 kappa_ex_ampl = 50e6*2*np.pi
 kappa_ex = kappa_ex_ampl*np.ones([Num_of_modes])
 nn=10000
@@ -77,7 +76,7 @@ B = np.sqrt(3/G2/(1+C**2)*(G0-GLE.kappa.max()))
 Soliton = np.complex_(A0*1/(np.cosh(B*(GLE.phi-np.pi)))**(1+1j*C))
 SolSpectrum = np.zeros(Num_of_modes,dtype=complex)
 #SolSpectrum[0] = np.sqrt(0.0008)
-SolSpectrum = np.fft.fft(Soliton)*Num_of_modes#/1e10#/Num_of_modes**2/
+SolSpectrum = np.fft.fft(Soliton)#*Num_of_modes#/1e10#/Num_of_modes**2/
 #SolSpectrum = np.zeros(Num_of_modes,dtype=complex)
 #SolSpectrum=np.load('./map2d.npy')[0,:]
 # A0 = 0.00001
@@ -87,13 +86,14 @@ SolSpectrum = np.fft.fft(Soliton)*Num_of_modes#/1e10#/Num_of_modes**2/
 #%%
 start_time = time.time()
 # map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-5)
-<<<<<<< HEAD
-map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-14)
+
+#map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-14)
+map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,dt=1e-14)
 # map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-2)
-=======
+
 #map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-12)
 #map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,Seed=SolSpectrum,dt=1e-2)
->>>>>>> main
+
 #map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,Seed=SolSpectrum,Solver='Sie',dt=1e-2)#*np.sqrt((hbar*GLE.w0))
 print("--- %s seconds ---" % (time.time() - start_time))
 #%%

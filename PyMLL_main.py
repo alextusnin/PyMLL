@@ -440,7 +440,7 @@ class GLE:
         In_Dint = np.array(self.Dint*2/self.kappa,dtype=ctypes.c_double)
         In_gain = np.array(self.gain_grid/self.kappa,dtype=ctypes.c_double)
         In_P_th = ctypes.c_double(P_th)
-        In_Ttotal = ctypes.c_double(T_rn/nn)
+        In_Ttotal = ctypes.c_double(T_rn)
         In_g0 = ctypes.c_double(self.g0/(hbar*self.w0)*2/self.kappa.max())
         #In_g0 = ctypes.c_double(1.0)
         In_Nt = ctypes.c_int(int(t_st/dt)+1)
