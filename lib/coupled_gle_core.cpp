@@ -53,7 +53,7 @@ void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, co
     if (dtmax < dt) {dtmax/=10; dtmin=dtmax/10;}
     else {dtmax = dt; dtmin = dt/10;}
     //std::cout<<"dtmax = " << dtmax << " single step = " << Tstep << " Tmax = " << Tstep*Ndet << "\n";
-    std::cout<<"dt = " << dt << " single step = " << Tstep << " Tmax = " << Ttotal << "\n";
+    std::cout<<"dt = " << dt << " single step = " << Ttotal << " Tmax = " << Ttotal << "\n";
 
     noise=WhiteNoise(noise_amp,Nphi);
     for (int i_phi = 0; i_phi<Nphi; i_phi++){
@@ -63,9 +63,9 @@ void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, co
         res_buf[i_phi+Nphi] = res_IM[i_phi] + noise[i_phi].imag();
     }
     Output out(Ndet);
-    rhs_gle gle(Nphi, Dint1, Dint2, kappa, J,  g0, gain1, gain2, P_th);
+    rhs_coupled_gle gle(Nphi, Dint1, Dint2, kappa, J,  g0, gain1, gain2, P_th);
     noise=WhiteNoise(noise_amp,Nphi);
-    Odeint<StepperDopr853<rhs_gle> > ode(res_buf,t0,Ttotal,atol,rtol,dt,dt/1000,out,gle);
+    Odeint<StepperDopr853<rhs_coupled_gle> > ode(res_buf,t0,Ttotal,atol,rtol,dt,dt/1000,out,gle);
     ode.integrate();
     std::cout<<"Integration is done, saving data\n";
     for (int i_det=0; i_det<Ndet; i_det++){

@@ -21,19 +21,21 @@ from scipy.constants import c,hbar
 
 
 
-FSR = 50e9
+FSR = 200e9
 
 D1 = 2*np.pi*FSR
 Num_of_modes = 2**12
 D2 = -2*np.pi*0.5*1e6#-1*beta2*L/Tr*D1**2 ## From beta2 to D2
-D3 = -2*np.pi*25e3
+D3 = -2*np.pi*25e3*0
 D4 = -2*np.pi*1e3*0
 D5 = 2*np.pi*54*0
 D6 = -2*np.pi*1*0
 mu = np.arange(-Num_of_modes/2,Num_of_modes/2)
 
 Dint = (mu**2*D2/2 + mu**3*D3/6+mu**4*D4/24+mu**5*D5/120+mu**6*D6/720)
-#Dint[Num_of_modes//2+400]+=500e8
+Dint[np.int_(mu)==60]+=800e6*2*np.pi
+#Dint[np.int_(mu)==1]-=500e6*2*np.pi
+#Dint[np.int_(mu)==-1]-=500e6*2*np.pi
 kappa_ex_ampl = 50e6*2*np.pi
 kappa_ex = kappa_ex_ampl*np.ones([Num_of_modes])
 nn=10000
@@ -68,8 +70,8 @@ simulation_parameters = {'slow_time' : 1e-8,
                          'relative_tolerance' : 1e-12,
                          'max_internal_steps' : 2000}
 #%%
-G0 = GLE.gain.FitGaussian()[0]/2
-G2 = (1/GLE.gain.FitGaussian()[2]**2)*D1**2*G0
+G0 = GLE.FitGaussian()[0]/2
+G2 = (1/GLE.FitGaussian()[2]**2)*D1**2*G0
 C=0; Phi = 0;
 A0 = np.sqrt(3/4*(G0-GLE.kappa.max())/(GLE.g0)*abs(D2)/G2)*np.sqrt(hbar*GLE.w0)
 B = np.sqrt(3/G2/(1+C**2)*(G0-GLE.kappa.max()))
@@ -110,10 +112,11 @@ for jj in range(0):
 #pcm.Plot_Map(np.fft.ifft(map2d[:,:],axis=1),np.arange(nn))
 #%%
 #plt.plot(np.arange(nn)*simulation_parameters['slow_time']/nn,np.sum(np.abs(map2d[:,:])**2,axis=1)*((hbar*GLE.w0))/GLE.gain.P_th)
-plt.plot(np.arange(nn)*simulation_parameters['slow_time']/nn,np.sum(np.abs(map2d[:,:])**2,axis=1)/GLE.gain.P_th)
+plt.plot(np.arange(nn)*simulation_parameters['slow_time']/nn,np.sum(np.abs(map2d[:,:])**2,axis=1)/GLE.P_th)
 #%%
+slow_freq = (np.arange(0,nn) - nn/2)/simulation_parameters['slow_time']
 plt.figure()
-plt.pcolormesh(GLE.frequency_grid,np.arange(nn),np.log(abs(np.fft.fftshift(np.fft.ifft(map2d[:,:],axis=0)))**2/1e-3),)
+plt.pcolormesh(GLE.frequency_grid,slow_freq/1e9,10*np.log10(abs(np.fft.fftshift(np.fft.ifft(map2d[:,:],axis=0)))**2/1e-3),cmap='afmhot',vmin=-150)
 #%%
 # plt.figure()
 # plt.plot(GLE.frequency_grid,np.fft.fftshift(GLE.gain_grid-GLE.kappa))

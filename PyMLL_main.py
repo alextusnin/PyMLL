@@ -16,7 +16,8 @@ class Gain:
         self.frequency = c/self.wavelength
         self.gain_rad_Hz = 0
         self.P_th=0.0008#W
-        
+    def InitZeroGain(self):
+        self.gain_data = np.zeroslike(self.wavelength)
     def Transform_to_rad_Hz(self,group_index):
         self.gain_rad_Hz = c*self.gain_data/group_index
     def FitGaussian(self):
@@ -36,8 +37,9 @@ class Gain:
         popt, pcov = curve_fit(Gaussian, xdata, ydata, bounds=bounds)
         return popt
 
-class GLE:
+class GLE(Gain):
     def __init__(self):
+        Gain.__init__(self)
         self.n0 = 0
         self.n2 = 0
         self.FSR = 0
@@ -90,7 +92,7 @@ class GLE:
                 simulation_parameters[key] = np.load(data_dir+'sim_parameters/'+file)
         map2d=np.load(data_dir+'map2d.npy')
         
-        self.gain = Gain()
+        #self.gain = Gain()
         self.gain.Transform_to_rad_Hz(self.n0)
         a1,w1,sigma1=self.gain.FitGaussian()
         self.nu0=w1
@@ -105,7 +107,7 @@ class GLE:
     def Init_From_Dict(self, resonator_parameters):
         #Physical parameters initialization
         #
-        self.gain = Gain()
+        #self.gain = Gain()
         
         self.n0 = resonator_parameters['n0']
         self.n2 = resonator_parameters['n2']
@@ -118,13 +120,13 @@ class GLE:
         self.Dint = np.fft.ifftshift(resonator_parameters['Dint'])
         #self.gain = np.fft.ifftshift(resonator_parameters['gain'])
         
-        self.gain.Transform_to_rad_Hz(self.n0)
+        self.Transform_to_rad_Hz(self.n0)
      
         
         
         
         #Auxiliary physical parameters
-        self.nu0 = self.gain.frequency[np.argmax(self.gain.gain_data)]
+        self.nu0 = self.frequency[np.argmax(self.gain_data)]
         self.w0 = self.nu0*2*np.pi
         self.Tr = 1/self.FSR #round trip time
         self.Aeff = self.width*self.height 
@@ -139,7 +141,7 @@ class GLE:
         
         
         #a1,a2,w1,w2,sigma1,sigma2=self.gain.FitGaussian()
-        a1,w1,sigma1=self.gain.FitGaussian()
+        a1,w1,sigma1=self.FitGaussian()
         self.nu0=w1
         self.frequency_grid = self.nu0+ self.FSR*self.mu
         
@@ -417,7 +419,7 @@ class GLE:
         sol[0,:] = (seed)#/self.N_points
         print(np.sum(np.abs(sol[0,:]))**2)
         
-        P_th=self.gain.P_th#*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
+        P_th=self.P_th#*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
         print('Saturation power is',P_th)
         #%% crtypes defyning
         GLE_core = ctypes.CDLL(os.path.abspath(__file__)[:-14]+'/lib/lib_gle_core.so')
@@ -602,3 +604,110 @@ class GLE:
             return sol[-1, :]/np.sqrt(2*self.g0/self.kappa)
         else:
             print ('wrong parameter')
+            
+class TwoCoupledGLE():
+    def __init__(self,Cavity1, Cavity2,J):
+        self.Cavity1 = Cavity1
+        self.Cavity2 = Cavity2
+        self.J = J
+    def Propagate_PseudoSpectralSAMCLIB(self, simulation_parameters, Seed=[0], dt=5e-4):
+        #start_time = time.time()
+        T = simulation_parameters['slow_time']
+        out_param = simulation_parameters['output']
+        
+        eps = simulation_parameters['noise_level']
+        
+        abtol = simulation_parameters['absolute_tolerance']
+        reltol = simulation_parameters['relative_tolerance']
+        nn = simulation_parameters['Number of points']
+        
+        
+        
+        #seed = np.zeros(self.N_points,dtype=complex)
+        print(np.sum(np.abs(Seed[:])))
+        seed=Seed
+        print(np.sum(np.abs(seed[:])))
+        #seed*=np.sqrt(2*self.g0/self.kappa.max())
+        seed+= Cavity1.noise(eps)#*np.sqrt(2*self.g0/self.kappa.max())
+        print(np.sum(np.abs(seed[:])))
+        #plt.plot(abs(seed))
+        ### renormalization
+        T_rn = (self.kappa.max()/2)*T
+        t_st = np.float_(T_rn)/nn
+        
+        sol = np.ndarray(shape=(nn, self.N_points), dtype='complex') # define an array to store the data
+        sol[0,:] = (seed)#/self.N_points
+        print(np.sum(np.abs(sol[0,:]))**2)
+        
+        P_th=self.P_th#*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
+        print('Saturation power is',P_th)
+        #%% crtypes defyning
+        GLE_core = ctypes.CDLL(os.path.abspath(__file__)[:-14]+'/lib/lib_gle_core.so')
+        GLE_core.Propagate_SAM.restype = ctypes.c_void_p
+        #%% defining the ctypes variables
+        
+        A = np.fft.ifft(seed)#*self.N_points
+        print(np.sum(np.abs(A[:]))**2)
+        #plt.plot(abs(A))
+        
+        In_val_RE = np.array(np.real(A),dtype=ctypes.c_double)
+        In_val_IM = np.array(np.imag(A),dtype=ctypes.c_double)
+        In_phi = np.array(self.phi,dtype=ctypes.c_double)
+        In_Nphi = ctypes.c_int(self.N_points)
+        In_atol = ctypes.c_double(abtol)
+        In_rtol = ctypes.c_double(reltol)
+        
+        
+        In_Ndet = ctypes.c_int(nn)
+        In_Dint = np.array(self.Dint*2/self.kappa,dtype=ctypes.c_double)
+        In_gain = np.array(self.gain_grid/self.kappa,dtype=ctypes.c_double)
+        In_P_th = ctypes.c_double(P_th)
+        In_Ttotal = ctypes.c_double(T_rn)
+        In_g0 = ctypes.c_double(self.g0/(hbar*self.w0)*2/self.kappa.max())
+        #In_g0 = ctypes.c_double(1.0)
+        In_Nt = ctypes.c_int(int(t_st/dt)+1)
+        In_dt = ctypes.c_double(dt)
+        In_noise_amp = ctypes.c_double(eps)
+        
+        
+            
+        if self.n2t!=0:
+            In_kappa = ctypes.c_double(self.kappa_0+self.kappa_ex)
+            In_t_th = ctypes.c_double(self.t_th)
+            In_n2 = ctypes.c_double(self.n2)
+            In_n2t = ctypes.c_double(self.n2t)
+            
+            
+            
+        In_res_RE = np.zeros(nn*self.N_points,dtype=ctypes.c_double)
+        In_res_IM = np.zeros(nn*self.N_points,dtype=ctypes.c_double)
+        
+        double_p=ctypes.POINTER(ctypes.c_double)
+        In_val_RE_p = In_val_RE.ctypes.data_as(double_p)
+        In_val_IM_p = In_val_IM.ctypes.data_as(double_p)
+        In_phi_p = In_phi.ctypes.data_as(double_p)
+        
+        In_Dint_p = In_Dint.ctypes.data_as(double_p)
+        In_gain_p = In_gain.ctypes.data_as(double_p)
+        
+        In_res_RE_p = In_res_RE.ctypes.data_as(double_p)
+        In_res_IM_p = In_res_IM.ctypes.data_as(double_p)
+        #%%running simulations
+        if self.n2t==0:
+            GLE_core.Propagate_SAM(In_val_RE_p, In_val_IM_p, In_phi_p, In_Dint_p, In_g0, In_gain_p, In_P_th, In_Ndet, In_Nt, In_dt,  In_Ttotal, In_atol, In_rtol, In_Nphi, In_noise_amp, In_res_RE_p, In_res_IM_p)
+        else:
+            #GLE_core.PropagateThermalSAM(In_val_RE_p, In_val_IM_p, In_f_RE_p, In_f_IM_p, In_det_p, In_J, In_t_th, In_kappa, In_n2, In_n2t, In_phi_p, In_Dint_p, In_Ndet, In_Nt, In_dt, In_atol, In_rtol, In_Nphi, In_noise_amp, In_res_RE_p, In_res_IM_p)
+            pass
+        ind_modes = np.arange(self.N_points)
+        for ii in range(0,nn):
+            sol[ii,ind_modes] = np.fft.fft(In_res_RE[ii*self.N_points+ind_modes] + 1j*In_res_IM[ii*self.N_points+ind_modes])
+            
+        #sol = np.reshape(In_res_RE,[len(detuning),self.N_points]) + 1j*np.reshape(In_res_IM,[len(detuning),self.N_points])
+                    
+        if out_param == 'map':
+            return sol#/np.sqrt(2*self.g0/self.kappa)
+        elif out_param == 'fin_res':
+            return sol[-1, :]#/np.sqrt(2*self.g0/self.kappa)
+        else:
+            print ('wrong parameter')    
+    

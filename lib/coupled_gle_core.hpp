@@ -31,23 +31,24 @@ extern "C" {
 struct rhs_coupled_gle{
     Int Nphi;
     Doub det, P_th, power1, power2, g0, J;
-    double* Dint1, Dint2;
+    double* Dint1, *Dint2;
     double* kappa;
-    double* gain1, gain2;
+    double* gain1, *gain2;
     Complex i=1i;
     double buf_re, buf_im, dphi;
     fftw_plan plan_direct_2_spectrum;
     fftw_plan plan_spectrum_2_direct;
     fftw_complex *buf_direct, *buf_spectrum;
     
-    rhs_gle(Int Nphii, const double* Dint1i, const double* Dint2i, const double* kappai, const double Ji,  const double g0i , const double* Gain1i, const double* Gain2i, const double P_thi)
+    rhs_coupled_gle(Int Nphii, const double* Dint1i, const double* Dint2i, const double* kappai, const double Ji,  const double g0i , const double* Gain1i, const double* Gain2i, const double P_thi)
     {
         std::cout<<"Initialization started\n";
         Nphi = Nphii;
         Dint1 = new (std::nothrow) double[Nphi];
         Dint2 = new (std::nothrow) double[Nphi];
         kappa = new (std::nothrow) double[2];
-        gain = new (std::nothrow) double[Nphi];
+        gain1 = new (std::nothrow) double[Nphi];
+        gain2 = new (std::nothrow) double[Nphi];
         g0=g0i;
         J = Ji;
         //DispTerm = new (std::nothrow) double[2*Nphi];
@@ -70,7 +71,7 @@ struct rhs_coupled_gle{
         std::cout<<"Initialization succesfull\n";
     }
 
-    ~rhs_gle()
+    ~rhs_coupled_gle()
     {
         delete [] Dint1;
         delete [] Dint2;
@@ -98,8 +99,8 @@ struct rhs_coupled_gle{
 //      std::cout<< power << " ";
 //      std::this_thread::sleep_for(3ms);
         for (int i_phi=0; i_phi<Nphi; i_phi++){
-            buf_re = Dint1[i_phi]*buf_spectrum[i_phi][1] + gain[i_phi]*buf_spectrum[i_phi][0]*1/(1+power1/P_th) ;
-            buf_im =  -Dint1[i_phi]*buf_spectrum[i_phi][0] + gain[i_phi]*buf_spectrum[i_phi][1]*1/(1+power1/P_th) ;
+            buf_re = Dint1[i_phi]*buf_spectrum[i_phi][1] + gain1[i_phi]*buf_spectrum[i_phi][0]*1/(1+power1/P_th) ;
+            buf_im =  -Dint1[i_phi]*buf_spectrum[i_phi][0] + gain1[i_phi]*buf_spectrum[i_phi][1]*1/(1+power1/P_th) ;
             buf_spectrum[i_phi][0]= buf_re; 
             buf_spectrum[i_phi][1]= buf_im;
         }
@@ -119,8 +120,8 @@ struct rhs_coupled_gle{
 //      std::cout<< power << " ";
 //      std::this_thread::sleep_for(3ms);
         for (int i_phi=0; i_phi<Nphi; i_phi++){
-            buf_re = Dint2[i_phi]*buf_spectrum[i_phi][1] + gain[i_phi]*buf_spectrum[i_phi][0]*1/(1+power2/P_th)  ;
-            buf_im =  -Dint2[i_phi]*buf_spectrum[i_phi][0] + gain[i_phi]*buf_spectrum[i_phi][1]*1/(1+power2/P_th)  ;
+            buf_re = Dint2[i_phi]*buf_spectrum[i_phi][1] + gain2[i_phi]*buf_spectrum[i_phi][0]*1/(1+power2/P_th)  ;
+            buf_im =  -Dint2[i_phi]*buf_spectrum[i_phi][0] + gain2[i_phi]*buf_spectrum[i_phi][1]*1/(1+power2/P_th)  ;
             buf_spectrum[i_phi][0]= buf_re; 
             buf_spectrum[i_phi][1]= buf_im;
         }
@@ -128,14 +129,14 @@ struct rhs_coupled_gle{
 
 
         for (int i_phi = 0; i_phi<Nphi; i_phi++){
-            dydx[i_phi] = -y[i_phi]*kappa[0]+ buf_direct[i_phi][0]/Nphi  - g0*(y[i_phi]*y[i_phi]+y[i_phi+Nphi]*y[i_phi+Nphi]+2*power2)*y[i_phi+Nphi]  ; 
-            dydx[i_phi+Nphi] = -y[i_phi+Nphi]*kappa[0]  +  buf_direct[i_phi][1]/Nphi+g0*(y[i_phi]*y[i_phi]+y[i_phi+Nphi]*y[i_phi+Nphi] + 2*power2)*y[i_phi];
+            dydx[i_phi] = -y[i_phi]*kappa[0]+ buf_direct[i_phi][0]/Nphi  - g0*(y[i_phi]*y[i_phi]+y[i_phi+Nphi]*y[i_phi+Nphi])*y[i_phi+Nphi]  ; 
+            dydx[i_phi+Nphi] = -y[i_phi+Nphi]*kappa[0]  +  buf_direct[i_phi][1]/Nphi+g0*(y[i_phi]*y[i_phi]+y[i_phi+Nphi]*y[i_phi+Nphi] )*y[i_phi];
 
             dydx[i_phi]+= -(J)*(y[2*Nphi+i_phi+Nphi]);
             dydx[i_phi+Nphi]+= (J)*(y[2*Nphi+i_phi]);
 
-            dydx[2*Nphi+i_phi] = -y[2*Nphi+i_phi]*kappa[1]+ buf_direct[i_phi][0]/Nphi  - g0*(y[2*Nphi+i_phi]*y[2*Nphi+i_phi]+y[2*Nphi+i_phi+Nphi]*y[2*Nphi+i_phi+Nphi]+2*power1)*y[2*Nphi+i_phi+Nphi]; 
-            dydx[2*Nphi+i_phi+Nphi] = -y[2*Nphi+i_phi+Nphi]*kappa[1]  +  buf_direct[i_phi][1]/Nphi+g0*(y[2*Nphi+i_phi]*y[2*Nphi+i_phi]+y[2*Nphi+i_phi+Nphi]*y[2*Nphi+i_phi+Nphi]+2*power1)*y[2*Nphi+i_phi];
+            dydx[2*Nphi+i_phi] = -y[2*Nphi+i_phi]*kappa[1]+ buf_direct[i_phi][0]/Nphi  - g0*(y[2*Nphi+i_phi]*y[2*Nphi+i_phi]+y[2*Nphi+i_phi+Nphi]*y[2*Nphi+i_phi+Nphi])*y[2*Nphi+i_phi+Nphi]; 
+            dydx[2*Nphi+i_phi+Nphi] = -y[2*Nphi+i_phi+Nphi]*kappa[1]  +  buf_direct[i_phi][1]/Nphi+g0*(y[2*Nphi+i_phi]*y[2*Nphi+i_phi]+y[2*Nphi+i_phi+Nphi]*y[2*Nphi+i_phi+Nphi])*y[2*Nphi+i_phi];
 
             dydx[2*Nphi+i_phi]+=  -(J)*(y[i_phi+Nphi]);
             dydx[2*Nphi+i_phi+Nphi]+=  (J)*(y[i_phi]);
