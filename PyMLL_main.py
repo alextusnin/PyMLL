@@ -11,13 +11,13 @@ class Gain:
     def __init__(self):
         gain_data_mat = scipy.io.loadmat(os.path.abspath(__file__)[:-14]+'/gain_data/gain_per_m.mat')
         wavelength_mat = scipy.io.loadmat(os.path.abspath(__file__)[:-14]+'/gain_data/wavelength.mat')
-        self.gain_data = gain_data_mat['gain_per_m'][0] #For Power
+        self.gain_data = gain_data_mat['gain_per_m'][0]/2 #For sqrt(Power)
         self.wavelength = wavelength_mat['filtered_x'][0]*1e-9
         self.frequency = c/self.wavelength
         self.gain_rad_Hz = 0
         self.P_th=0.0008#W
     def InitZeroGain(self):
-        self.gain_data = np.zeroslike(self.wavelength)
+        self.gain_data = np.zeros_like(self.wavelength)
     def Transform_to_rad_Hz(self,group_index):
         self.gain_rad_Hz = c*self.gain_data/group_index
     def FitGaussian(self):
@@ -34,7 +34,10 @@ class Gain:
         a2max = 10*a2min
         #bounds=((a1min,a2min,190e12,194e12,0.01e12,0.1e12),(a1max,a2max,193e12,195.4e12,5e12,0.5e12))
         bounds=((a1min,190e12,0.01e12),(a1max,193e12,5e12,))
-        popt, pcov = curve_fit(Gaussian, xdata, ydata, bounds=bounds)
+        if np.max(self.gain_data > 1e-12):
+            popt, pcov = curve_fit(Gaussian, xdata, ydata, bounds=bounds)
+        else:
+            popt = [0, 193e12,5e12]
         return popt
 
 class GLE(Gain):
@@ -451,11 +454,11 @@ class GLE(Gain):
         
         
             
-        if self.n2t!=0:
-            In_kappa = ctypes.c_double(self.kappa_0+self.kappa_ex)
-            In_t_th = ctypes.c_double(self.t_th)
-            In_n2 = ctypes.c_double(self.n2)
-            In_n2t = ctypes.c_double(self.n2t)
+        #if self.n2t!=0:
+        #    In_kappa = ctypes.c_double(self.kappa_0+self.kappa_ex)
+        #    In_t_th = ctypes.c_double(self.t_th)
+        #    In_n2 = ctypes.c_double(self.n2)
+        #    In_n2t = ctypes.c_double(self.n2t)
             
             
             
@@ -562,11 +565,11 @@ class GLE(Gain):
         
         
             
-        if self.n2t!=0:
-            In_kappa = ctypes.c_double(self.kappa_0+self.kappa_ex)
-            In_t_th = ctypes.c_double(self.t_th)
-            In_n2 = ctypes.c_double(self.n2)
-            In_n2t = ctypes.c_double(self.n2t)
+        #if self.n2t!=0:
+        #    In_kappa = ctypes.c_double(self.kappa_0+self.kappa_ex)
+        #    In_t_th = ctypes.c_double(self.t_th)
+        #    In_n2 = ctypes.c_double(self.n2)
+        #    In_n2t = ctypes.c_double(self.n2t)
             
             
             
@@ -610,7 +613,8 @@ class TwoCoupledGLE():
         self.Cavity1 = Cavity1
         self.Cavity2 = Cavity2
         self.J = J
-    def Propagate_PseudoSpectralSAMCLIB(self, simulation_parameters, Seed=[0,0], dt=5e-4):
+    def Propagate_PseudoSpectralSAMCLIB(self, simulation_parameters, Seed=[0], dt=5e-4,HardSeed=False):
+       
         #start_time = time.time()
         T = simulation_parameters['slow_time']
         out_param = simulation_parameters['output']
@@ -621,22 +625,32 @@ class TwoCoupledGLE():
         reltol = simulation_parameters['relative_tolerance']
         nn = simulation_parameters['Number of points']
         
+        if HardSeed==False:
+            seed = np.zeros([self.Cavity1.N_points,2],dtype=complex)
+        else:
+            seed = Seed
         
-        
+        max_kappa = np.max( [self.Cavity1.kappa.max(), self.Cavity2.kappa.max()  ])
+        max_gain = np.max( [self.Cavity1.gain_grid.max(), self.Cavity2.gain_grid.max()  ])
         #seed = np.zeros(self.N_points,dtype=complex)
-        print(np.sum(np.abs(Seed[:])))
-        seed=Seed
-        print(np.sum(np.abs(seed[:])))
+        #print(np.sum(np.abs(seed[:])))
+        #seed=Seed
+        #print(np.sum(np.abs(seed[:])))
         #seed*=np.sqrt(2*self.g0/self.kappa.max())
         seed[:,0]+= self.Cavity1.noise(eps)#*np.sqrt(2*self.g0/self.kappa.max())
         seed[:,1]+= self.Cavity2.noise(eps)
         print(np.sum(np.abs(seed[:])))
         #plt.plot(abs(seed))
         ### renormalization
-        T_rn = np.max( [self.Cavity1.kappa.max(), self.Cavity2.kappa.max()  ])/2*T#(self.kappa.max()/2)*T
+        
+        
+        print(max_kappa)
+        print('Max gain in 1st cavity is ',np.max(self.Cavity1.gain_grid/max_gain))
+        print('Max gain in 2nd cavity is ',np.max(self.Cavity2.gain_grid/max_gain))
+        T_rn = max_gain/2*T#(self.kappa.max()/2)*T
         t_st = np.float_(T_rn)/nn
         
-        sol = np.ndarray(shape=(nn, self.N_points,2), dtype='complex') # define an array to store the data
+        sol = np.ndarray(shape=(nn, self.Cavity1.N_points,2), dtype='complex') # define an array to store the data
         sol[0,:,:] = (seed)#/self.N_points
         print(np.sum(np.abs(sol[0,:,0]))**2+np.sum(np.abs(sol[0,:,1]))**2)
         
@@ -664,55 +678,53 @@ class TwoCoupledGLE():
         
         
         In_Ndet = ctypes.c_int(nn)
-        In_Dint = np.array(2*self.Cavity1.N_points)
-        In_Dint1 = self.Cavity1.Dint
-        In_Dint2 = self.Cavity2.Dint
+        #In_Dint = np.array(2*self.Cavity1.N_points)
+        In_kappa1 = np.array(self.Cavity1.kappa/max_gain,dtype=ctypes.c_double)
+        In_kappa2 = np.array(self.Cavity2.kappa/max_gain,dtype=ctypes.c_double)
+        In_Dint1 = np.array(self.Cavity1.Dint*2/max_gain,dtype=ctypes.c_double)
+        In_Dint2 = np.array(self.Cavity2.Dint*2/max_gain,dtype=ctypes.c_double)
         #In_Dint = np.array(self.Dint*2/self.kappa,dtype=ctypes.c_double)
         #In_gain = np.array(self.gain_grid/self.kappa,dtype=ctypes.c_double)
-        In_gain1 = self.Cavity1.gain_grid/
-        In_gain2[self.Cavity1.N_points:] = Cavity2.Dint
+        In_gain1 = np.array(self.Cavity1.gain_grid/max_gain,dtype=ctypes.c_double)
+        In_gain2 = np.array(self.Cavity2.gain_grid/max_gain,dtype=ctypes.c_double)
         
         In_P_th1 = ctypes.c_double(P_th1)
         In_P_th2 = ctypes.c_double(P_th2)
         In_Ttotal = ctypes.c_double(T_rn)
-        In_g0 = ctypes.c_double(self.g0/(hbar*self.w0)*2/self.kappa.max())
+        In_g0 = ctypes.c_double(self.Cavity1.g0/(hbar*self.Cavity1.w0)*2/max_gain)
+        In_J = ctypes.c_double(self.J*2/max_gain)
         #In_g0 = ctypes.c_double(1.0)
         In_Nt = ctypes.c_int(int(t_st/dt)+1)
         In_dt = ctypes.c_double(dt)
         In_noise_amp = ctypes.c_double(eps)
-        
-        
-            
-        if self.n2t!=0:
-            In_kappa = ctypes.c_double(self.kappa_0+self.kappa_ex)
-            In_t_th = ctypes.c_double(self.t_th)
-            In_n2 = ctypes.c_double(self.n2)
-            In_n2t = ctypes.c_double(self.n2t)
             
             
             
-        In_res_RE = np.zeros(nn*self.N_points,dtype=ctypes.c_double)
-        In_res_IM = np.zeros(nn*self.N_points,dtype=ctypes.c_double)
+        In_res_RE = np.zeros(2*nn*self.Cavity1.N_points,dtype=ctypes.c_double)
+        In_res_IM = np.zeros(2*nn*self.Cavity1.N_points,dtype=ctypes.c_double)
         
         double_p=ctypes.POINTER(ctypes.c_double)
         In_val_RE_p = In_val_RE.ctypes.data_as(double_p)
         In_val_IM_p = In_val_IM.ctypes.data_as(double_p)
         In_phi_p = In_phi.ctypes.data_as(double_p)
         
-        In_Dint_p = In_Dint.ctypes.data_as(double_p)
-        In_gain_p = In_gain.ctypes.data_as(double_p)
+        In_kappa1_p = In_kappa1.ctypes.data_as(double_p)
+        In_kappa2_p = In_kappa2.ctypes.data_as(double_p)
+        In_Dint1_p = In_Dint1.ctypes.data_as(double_p)
+        In_Dint2_p = In_Dint2.ctypes.data_as(double_p)
+        In_gain1_p = In_gain1.ctypes.data_as(double_p)
+        In_gain2_p = In_gain2.ctypes.data_as(double_p)
         
         In_res_RE_p = In_res_RE.ctypes.data_as(double_p)
         In_res_IM_p = In_res_IM.ctypes.data_as(double_p)
         #%%running simulations
-        if self.n2t==0:
-            GLE_core.Propagate_SAM(In_val_RE_p, In_val_IM_p, In_phi_p, In_Dint_p, In_g0, In_gain_p, In_P_th, In_Ndet, In_Nt, In_dt,  In_Ttotal, In_atol, In_rtol, In_Nphi, In_noise_amp, In_res_RE_p, In_res_IM_p)
-        else:
-            #GLE_core.PropagateThermalSAM(In_val_RE_p, In_val_IM_p, In_f_RE_p, In_f_IM_p, In_det_p, In_J, In_t_th, In_kappa, In_n2, In_n2t, In_phi_p, In_Dint_p, In_Ndet, In_Nt, In_dt, In_atol, In_rtol, In_Nphi, In_noise_amp, In_res_RE_p, In_res_IM_p)
-            pass
-        ind_modes = np.arange(self.N_points)
+        
+        GLE_core.Propagate_SAM(In_val_RE_p, In_val_IM_p, In_phi_p, In_Dint1_p, In_Dint2_p, In_kappa1_p, In_kappa2_p, In_J, In_g0, In_gain1_p, In_gain2_p, In_P_th1, In_Ndet, In_Nt, In_dt,  In_Ttotal, In_atol, In_rtol, In_Nphi, In_noise_amp, In_res_RE_p, In_res_IM_p)
+        
+        ind_modes = np.arange(self.Cavity1.N_points)
         for ii in range(0,nn):
-            sol[ii,ind_modes] = np.fft.fft(In_res_RE[ii*self.N_points+ind_modes] + 1j*In_res_IM[ii*self.N_points+ind_modes])
+            sol[ii,ind_modes,0] = np.fft.fft(In_res_RE[ii*self.Cavity1.N_points*2+ind_modes] + 1j*In_res_IM[ii*self.Cavity1.N_points*2+ind_modes])
+            sol[ii,ind_modes,1] = np.fft.fft(In_res_RE[ii*self.Cavity1.N_points*2 + self.Cavity1.N_points +ind_modes] + 1j*In_res_IM[ii*self.Cavity1.N_points*2+ self.Cavity1.N_points + ind_modes])
             
         #sol = np.reshape(In_res_RE,[len(detuning),self.N_points]) + 1j*np.reshape(In_res_IM,[len(detuning),self.N_points])
                     

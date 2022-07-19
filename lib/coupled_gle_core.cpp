@@ -39,13 +39,13 @@ std::complex<double>* WhiteNoise(const double amp, const int Nphi)
     return res;
 }
 
-void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint1, const double* Dint2, const double* kappa, const double J, const double g0, const double* gain1, const double* gain2, const double P_th,  const int Ndet, const int Nt, const double dt, const double Ttotal, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM)
+void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, const double* Dint1, const double* Dint2, const double* kappa1, const double* kappa2, const double J, const double g0, const double* gain1, const double* gain2, const double P_th,  const int Ndet, const int Nt, const double dt, const double Ttotal, const double atol, const double rtol, const int Nphi, double noise_amp, double* res_RE, double* res_IM)
     
 {
     
     std::cout<<"Pseudo Spectral Step adaptative Dopri853 from NR3 is running\n";
     std::complex<double>* noise = new (std::nothrow) std::complex<double>[Nphi];
-    VecDoub res_buf(2*Nphi);
+    VecDoub res_buf(4*Nphi);
     double power = 0.;
     double t0=0., t1=Ttotal;
     double dtmin, dtmax;
@@ -55,15 +55,22 @@ void* Propagate_SAM(double* In_val_RE, double* In_val_IM,  const double *phi, co
     //std::cout<<"dtmax = " << dtmax << " single step = " << Tstep << " Tmax = " << Tstep*Ndet << "\n";
     std::cout<<"dt = " << dt << " single step = " << Ttotal << " Tmax = " << Ttotal << "\n";
 
-    noise=WhiteNoise(noise_amp,Nphi);
+    noise=WhiteNoise(noise_amp,2*Nphi);
     for (int i_phi = 0; i_phi<Nphi; i_phi++){
         res_RE[i_phi] = In_val_RE[i_phi];
         res_IM[i_phi] = In_val_IM[i_phi];
+        
+        res_RE[Nphi+i_phi] = In_val_RE[Nphi+i_phi];
+        res_IM[Nphi+i_phi] = In_val_IM[Nphi+i_phi];
+        
         res_buf[i_phi] = res_RE[i_phi] + noise[i_phi].real();
         res_buf[i_phi+Nphi] = res_IM[i_phi] + noise[i_phi].imag();
+        
+        res_buf[2*Nphi+i_phi] = res_RE[Nphi+i_phi] + noise[Nphi+i_phi].real();
+        res_buf[2*Nphi+i_phi+Nphi] = res_IM[Nphi+i_phi] + noise[Nphi+i_phi].imag();
     }
     Output out(Ndet);
-    rhs_coupled_gle gle(Nphi, Dint1, Dint2, kappa, J,  g0, gain1, gain2, P_th);
+    rhs_coupled_gle gle(Nphi, Dint1, Dint2, kappa1, kappa2,  J,  g0, gain1, gain2, P_th);
     noise=WhiteNoise(noise_amp,Nphi);
     Odeint<StepperDopr853<rhs_coupled_gle> > ode(res_buf,t0,Ttotal,atol,rtol,dt,dt/1000,out,gle);
     ode.integrate();
