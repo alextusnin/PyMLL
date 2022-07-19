@@ -107,11 +107,11 @@ plt.plot(GLE_1.frequency_grid,np.fft.fftshift(GLE_1.gain_grid-GLE_1.kappa))
 #%%
 
 data_dir = '/home/alextusnin/Documents/MLL/simulations'
-dir_2_save = data_dir+'/data_coupled/'+str(np.round(FSR/1e9,1))+'_'+str(np.round(D2_1/2/np.pi/1e6,1))+'_' +str(np.round(J/2/np.pi/1e9,1)) + '/'
+dir_2_save = data_dir+'/data_coupled/'+str(np.round(FSR/1e9,1))+'_'+str(np.round(D2_1/2/np.pi/1e6,1))+'_' +str(np.round(J/2/np.pi/1e9,2)) + '/'
 try:
     
     os.mkdir(dir_2_save)
 except:
     pass
 #%%%
-GLE.Save_Data(map2d,simulation_parameters,dir_2_save)    
+TwoGLEs.Save_Data(map2d,simulation_parameters,dir_2_save)    
