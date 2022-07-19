@@ -610,7 +610,7 @@ class TwoCoupledGLE():
         self.Cavity1 = Cavity1
         self.Cavity2 = Cavity2
         self.J = J
-    def Propagate_PseudoSpectralSAMCLIB(self, simulation_parameters, Seed=[0], dt=5e-4):
+    def Propagate_PseudoSpectralSAMCLIB(self, simulation_parameters, Seed=[0,0], dt=5e-4):
         #start_time = time.time()
         T = simulation_parameters['slow_time']
         out_param = simulation_parameters['output']
@@ -628,40 +628,52 @@ class TwoCoupledGLE():
         seed=Seed
         print(np.sum(np.abs(seed[:])))
         #seed*=np.sqrt(2*self.g0/self.kappa.max())
-        seed+= Cavity1.noise(eps)#*np.sqrt(2*self.g0/self.kappa.max())
+        seed[:,0]+= self.Cavity1.noise(eps)#*np.sqrt(2*self.g0/self.kappa.max())
+        seed[:,1]+= self.Cavity2.noise(eps)
         print(np.sum(np.abs(seed[:])))
         #plt.plot(abs(seed))
         ### renormalization
-        T_rn = (self.kappa.max()/2)*T
+        T_rn = np.max( [self.Cavity1.kappa.max(), self.Cavity2.kappa.max()  ])/2*T#(self.kappa.max()/2)*T
         t_st = np.float_(T_rn)/nn
         
-        sol = np.ndarray(shape=(nn, self.N_points), dtype='complex') # define an array to store the data
-        sol[0,:] = (seed)#/self.N_points
-        print(np.sum(np.abs(sol[0,:]))**2)
+        sol = np.ndarray(shape=(nn, self.N_points,2), dtype='complex') # define an array to store the data
+        sol[0,:,:] = (seed)#/self.N_points
+        print(np.sum(np.abs(sol[0,:,0]))**2+np.sum(np.abs(sol[0,:,1]))**2)
         
-        P_th=self.P_th#*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
-        print('Saturation power is',P_th)
+        P_th1=self.Cavity1.P_th#*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
+        P_th2=self.Cavity2.P_th
+        print('Saturation power 1 is',P_th1)
+        print('Saturation power 2 is',P_th2)
         #%% crtypes defyning
-        GLE_core = ctypes.CDLL(os.path.abspath(__file__)[:-14]+'/lib/lib_gle_core.so')
+        GLE_core = ctypes.CDLL(os.path.abspath(__file__)[:-14]+'/lib/lib_coupled_gle_core.so')
         GLE_core.Propagate_SAM.restype = ctypes.c_void_p
         #%% defining the ctypes variables
         
-        A = np.fft.ifft(seed)#*self.N_points
+        A = np.zeros([self.Cavity1.N_points+self.Cavity2.N_points],dtype=complex)
+        A[:self.Cavity1.N_points] = np.fft.ifft(seed[:,0])#*self.N_points
+        A[self.Cavity1.N_points:] = np.fft.ifft(seed[:,1])#*self.N_points
         print(np.sum(np.abs(A[:]))**2)
         #plt.plot(abs(A))
         
         In_val_RE = np.array(np.real(A),dtype=ctypes.c_double)
         In_val_IM = np.array(np.imag(A),dtype=ctypes.c_double)
-        In_phi = np.array(self.phi,dtype=ctypes.c_double)
-        In_Nphi = ctypes.c_int(self.N_points)
+        In_phi = np.array(self.Cavity1.phi,dtype=ctypes.c_double)
+        In_Nphi = ctypes.c_int(self.Cavity1.N_points)
         In_atol = ctypes.c_double(abtol)
         In_rtol = ctypes.c_double(reltol)
         
         
         In_Ndet = ctypes.c_int(nn)
-        In_Dint = np.array(self.Dint*2/self.kappa,dtype=ctypes.c_double)
-        In_gain = np.array(self.gain_grid/self.kappa,dtype=ctypes.c_double)
-        In_P_th = ctypes.c_double(P_th)
+        In_Dint = np.array(2*self.Cavity1.N_points)
+        In_Dint1 = self.Cavity1.Dint
+        In_Dint2 = self.Cavity2.Dint
+        #In_Dint = np.array(self.Dint*2/self.kappa,dtype=ctypes.c_double)
+        #In_gain = np.array(self.gain_grid/self.kappa,dtype=ctypes.c_double)
+        In_gain1 = self.Cavity1.gain_grid/
+        In_gain2[self.Cavity1.N_points:] = Cavity2.Dint
+        
+        In_P_th1 = ctypes.c_double(P_th1)
+        In_P_th2 = ctypes.c_double(P_th2)
         In_Ttotal = ctypes.c_double(T_rn)
         In_g0 = ctypes.c_double(self.g0/(hbar*self.w0)*2/self.kappa.max())
         #In_g0 = ctypes.c_double(1.0)
