@@ -21,13 +21,13 @@ from scipy.constants import c,hbar
 
 
 
-FSR = 400e9
+FSR = 50e9
 
 
 Num_of_modes = 2**10
 mu = np.arange(-Num_of_modes/2,Num_of_modes/2)
 D1_1 = 2*np.pi*FSR
-D2_1 = 2*np.pi*4*1e6#-1*beta2*L/Tr*D1**2 ## From beta2 to D2
+D2_1 = 2*np.pi*4*1e5#-1*beta2*L/Tr*D1**2 ## From beta2 to D2
 ##D1_2 = 2*np.pi*FSR
 #D2_2 = -2*np.pi*0.5*1e6#-1*beta2*L/Tr*D1**2 ## From beta2 to D2
 D1_2 = D1_1
@@ -39,7 +39,7 @@ kappa_ex_1_ampl = 20e6*2*np.pi
 kappa_ex_1 = kappa_ex_1_ampl*np.ones([Num_of_modes])
 kappa_ex_2_ampl = 50e6*2*np.pi
 kappa_ex_2 = kappa_ex_2_ampl*np.ones([Num_of_modes])
-J = 5e8*2*np.pi
+J = 1e7*2*np.pi
 nn=10000
 
 PhysicalParameters_1 = {'n0' : 1.9,
@@ -47,7 +47,7 @@ PhysicalParameters_1 = {'n0' : 1.9,
                       'FSR' : FSR ,
                       'width' : 2.2*1e-6,
                       'height' : 0.81*1e-6,
-                      'kappa_0' : 50e6*2*np.pi,
+                      'kappa_0' : 20e6*2*np.pi,
                       'kappa_ex' : kappa_ex_1,
                       'Dint' : Dint_1}
 PhysicalParameters_2 = {'n0' : 1.9,
@@ -55,7 +55,7 @@ PhysicalParameters_2 = {'n0' : 1.9,
                       'FSR' : FSR ,
                       'width' : 2.2*1e-6,
                       'height' : 0.81*1e-6,
-                      'kappa_0' : 50e6*2*np.pi,
+                      'kappa_0' : 20e6*2*np.pi,
                       'kappa_ex' : kappa_ex_2,
                       'Dint' : Dint_2}
 GLE_1 = PyMLL.GLE()
@@ -85,7 +85,7 @@ map2d=TwoGLEs.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,dt=1e-14)
 
 #%%
 start_time = time.time()
-for jj in range(0):
+for jj in range(500):
     Seed=map2d[-1,:,:]
     simulation_parameters['noise_level']=0
     map2d=TwoGLEs.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,Seed=Seed,dt=1e-14,HardSeed=True)
@@ -100,3 +100,18 @@ plt.plot(np.arange(nn)*simulation_parameters['slow_time']/nn,np.sum(np.abs(map2d
 slow_freq = (np.arange(0,nn) - nn/2)/simulation_parameters['slow_time']
 plt.figure()
 plt.pcolormesh(GLE_1.frequency_grid,slow_freq/1e9,10*np.log10(abs(np.fft.fftshift(np.fft.ifft(map2d[:,:,1],axis=0)))**2/1e-3),cmap='afmhot',vmin=-150)
+
+#%%
+plt.plot(GLE_1.frequency_grid,np.fft.fftshift(GLE_1.gain_grid-GLE_1.kappa))
+
+#%%
+
+data_dir = '/home/alextusnin/Documents/MLL/simulations'
+dir_2_save = data_dir+'/data_coupled/'+str(np.round(FSR/1e9,1))+'_'+str(np.round(D2_1/2/np.pi/1e6,1))+'_' +str(np.round(J/2/np.pi/1e9,1)) + '/'
+try:
+    
+    os.mkdir(dir_2_save)
+except:
+    pass
+#%%%
+GLE.Save_Data(map2d,simulation_parameters,dir_2_save)    

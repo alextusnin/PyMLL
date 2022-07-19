@@ -21,11 +21,11 @@ from scipy.constants import c,hbar
 
 
 
-FSR = 200e9
+FSR = 20e9
 
 D1 = 2*np.pi*FSR
-Num_of_modes = 2**12
-D2 = -2*np.pi*0.5*1e6#-1*beta2*L/Tr*D1**2 ## From beta2 to D2
+Num_of_modes = 2**10
+D2 = 2*np.pi*0.1e6#-1*beta2*L/Tr*D1**2 ## From beta2 to D2
 D3 = -2*np.pi*25e3*0
 D4 = -2*np.pi*1e3*0
 D5 = 2*np.pi*54*0
@@ -33,7 +33,7 @@ D6 = -2*np.pi*1*0
 mu = np.arange(-Num_of_modes/2,Num_of_modes/2)
 
 Dint = (mu**2*D2/2 + mu**3*D3/6+mu**4*D4/24+mu**5*D5/120+mu**6*D6/720)
-Dint[np.int_(mu)==60]+=800e6*2*np.pi
+#Dint[np.int_(mu)==60]+=800e6*2*np.pi
 #Dint[np.int_(mu)==1]-=500e6*2*np.pi
 #Dint[np.int_(mu)==-1]-=500e6*2*np.pi
 kappa_ex_ampl = 50e6*2*np.pi
@@ -64,7 +64,7 @@ GLE.Init_From_Dict(PhysicalParameters)
 
 simulation_parameters = {'slow_time' : 1e-8,
                          'Number of points' : nn,
-                         'noise_level' : 1e-7,
+                         'noise_level' : 1e-8,
                          'output' : 'map',
                          'absolute_tolerance' : 1e-12,
                          'relative_tolerance' : 1e-12,
@@ -100,7 +100,7 @@ map2d=GLE.Propagate_PseudoSpectralSAMCLIB(simulation_parameters,dt=1e-14)
 print("--- %s seconds ---" % (time.time() - start_time))
 #%%
 start_time = time.time()
-for jj in range(0):
+for jj in range(1000):
     Seed=map2d[-1,:]
     simulation_parameters['noise_level']=0
     #map2d=GLE.Propagate_PseudoSpectralStiffCLIB(simulation_parameters,Seed=Seed,dt=1e-3)
@@ -124,10 +124,11 @@ plt.pcolormesh(GLE.frequency_grid,slow_freq/1e9,10*np.log10(abs(np.fft.fftshift(
 #%%
 #%%
 
-# data_dir = '/home/alextusnin/Documents/MLL/simulations'
-# try:
-#     dir_2_save = data_dir+'/data/'+str(np.round(FSR/1e9,1))+'_'+str(np.round(D2/2/np.pi/1e6,1))+ '_fancy_collision/'
-#     os.mkdir(dir_2_save)
-# except:
-#     pass
-# GLE.Save_Data(map2d,simulation_parameters,dir_2_save)    
+data_dir = '/home/alextusnin/Documents/MLL/simulations'
+try:
+    dir_2_save = data_dir+'/data/'+str(np.round(FSR/1e9,1))+'_'+str(np.round(D2/2/np.pi/1e6,1)+'/')
+    os.mkdir(dir_2_save)
+except:
+    pass
+#%%%
+GLE.Save_Data(map2d,simulation_parameters,dir_2_save)    

@@ -11,7 +11,7 @@ class Gain:
     def __init__(self):
         gain_data_mat = scipy.io.loadmat(os.path.abspath(__file__)[:-14]+'/gain_data/gain_per_m.mat')
         wavelength_mat = scipy.io.loadmat(os.path.abspath(__file__)[:-14]+'/gain_data/wavelength.mat')
-        self.gain_data = gain_data_mat['gain_per_m'][0]/2 #For sqrt(Power)
+        self.gain_data = gain_data_mat['gain_per_m'][0] #For Power
         self.wavelength = wavelength_mat['filtered_x'][0]*1e-9
         self.frequency = c/self.wavelength
         self.gain_rad_Hz = 0
@@ -81,6 +81,9 @@ class GLE(Gain):
         simulation_parameters={}
         map2d=np.array([],dtype=complex)
         
+        if data_dir[-1]!='/':
+            data_dir+='/'
+        
         for file in os.listdir(data_dir+'class_parameters/'):
             if file.endswith('.npy'):
                 if file!='gain.npy':
@@ -96,15 +99,15 @@ class GLE(Gain):
         map2d=np.load(data_dir+'map2d.npy')
         
         #self.gain = Gain()
-        self.gain.Transform_to_rad_Hz(self.n0)
-        a1,w1,sigma1=self.gain.FitGaussian()
-        self.nu0=w1
-        self.frequency_grid = self.nu0+ self.FSR*self.mu
+        #self.gain.Transform_to_rad_Hz(self.n0)
+        #a1,w1,sigma1=self.gain.FitGaussian()
+        #self.nu0=w1
+        #self.frequency_grid = self.nu0+ self.FSR*self.mu
         
-        self.frequency_grid = self.nu0 + np.fft.fftshift(self.mu)*self.FSR
+        #self.frequency_grid = self.nu0 + np.fft.fftshift(self.mu)*self.FSR
         
         #self.gain_grid = np.fft.fftshift((a1*np.exp(-(self.frequency_grid-w1)**2/2/sigma1**2)+a2*np.exp(-(self.frequency_grid-w2)**2/2/sigma2**2)))
-        self.gain_grid = np.fft.fftshift((a1*np.exp(-(self.frequency_grid-w1)**2/2/sigma1**2)))
+        #self.gain_grid = np.fft.fftshift((a1*np.exp(-(self.frequency_grid-w1)**2/2/sigma1**2)))
         
         return simulation_parameters, map2d
     def Init_From_Dict(self, resonator_parameters):
@@ -158,7 +161,7 @@ class GLE(Gain):
         
         if len(A)==1:
             A = np.zeros(self.N_points)
-        Pth = self.gain.P_th#*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
+        Pth = self.P_th#*(1./(hbar*self.w0))*(2*self.g0/self.kappa.max())
             
         
         index_1 = np.arange(0,self.N_points)
@@ -271,7 +274,7 @@ class GLE(Gain):
         Jacob = np.zeros([self.N_points*2,self.N_points*2],dtype=complex)
         
         
-        Jacob_Disp_F[index_1,index_1] = -self.Dint[index_1]
+        Jacob_Disp_F[index_1,index_1] = self.Dint[index_1]
         
         for column_ind in index_1:
         
@@ -286,11 +289,52 @@ class GLE(Gain):
         
         
         
-        Jacob[:self.N_points,self.N_points:] = -Jacob_Disp
+        Jacob[:self.N_points,self.N_points:] = Jacob_Disp
         
         Jacob[self.N_points:,:self.N_points] = -Jacob[:self.N_points,self.N_points:]
         
         return np.real(Jacob)
+    def InitGainOperator(self,power):
+        index_1 = np.arange(0,self.N_points)
+        index_2 = np.arange(self.N_points,2*self.N_points)
+        
+        
+        
+        Jacob_Gain1 = np.zeros([self.N_points,self.N_points],dtype=complex)
+       
+        
+        
+        Jacob_Gain_F1 = np.zeros([self.N_points,self.N_points],dtype=complex)
+       
+        
+        Jacob = np.zeros([self.N_points*2,self.N_points*2],dtype=complex)
+        
+        Jacob_Gain_F1[index_1,index_1] = (self.gain_grid/2)*1/(1+power/self.P_th) -self.kappa/2
+       
+        
+        
+        for column_ind in index_1:
+            Jacob_Gain1[:,column_ind] = np.fft.fft(Jacob_Gain_F1[:,column_ind])
+            
+        
+        for column_ind in index_1:
+            Jacob_Gain_F1[:,column_ind] = np.fft.fft(np.conj(Jacob_Gain1.T)[:,column_ind])
+            
+        
+        
+        Jacob_Gain1 = np.conj(Jacob_Gain_F1.T)/self.N_points
+        
+        
+        
+        
+        
+        Jacob[:self.N_points,:self.N_points] = Jacob_Gain1
+        Jacob[self.N_points:,self.N_points:] =  Jacob_Gain1
+        
+        
+        
+        return np.real(Jacob)
+        
     def InitNonlinearJacobian(self,Psi):
         
         index_1 = np.arange(0,self.N_points)
@@ -304,7 +348,7 @@ class GLE(Gain):
         
         return Jacob
     def NewtonRaphson(self,A_input,tol=1e-5,max_iter=50):
-        A_guess = np.fft.ifft(A_input)#*np.sqrt(2*self.g0/self.kappa.max())/self.N_points
+        A_guess = np.fft.ifft(A_input)#*self.N_points#*np.sqrt(2*self.g0/self.kappa.max())/self.N_points
         DispJacob = (self.InitDispJacobian())*2/self.kappa.max()
         index_1 = np.arange(0,self.N_points)
         index_2 = np.arange(self.N_points,2*self.N_points)
@@ -318,11 +362,12 @@ class GLE(Gain):
         counter =0
         diff_array=[]
         while diff>tol:
-            GainJacob=self.InitGainJacobian(Aprev[index_1]+1j*Aprev[index_2])*2/self.kappa.max()
-            buf = np.dot(DispJacob+GainJacob,Aprev)
-            buf[index_1]-=self.g0/(hbar*self.w0)*2/self.kappa.max()*(Aprev[index_1]*Aprev[index_1]+Aprev[index_2]*Aprev[index_2])*Aprev[index_2]
-            buf[index_2]+=self.g0/(hbar*self.w0)*2/self.kappa.max()*(Aprev[index_1]*Aprev[index_1]+Aprev[index_2]*Aprev[index_2])*Aprev[index_1]
-            J=DispJacob+GainJacob+self.InitNonlinearJacobian(Aprev[index_1]+1j*Aprev[index_2])*self.g0/(hbar*self.w0)*2/self.kappa.max()
+            power = np.sum(np.abs(Aprev[index_1]+1j*Aprev[index_2])**2)/self.N_points
+            GainJacob=self.InitGainJacobian(np.fft.fft(Aprev[index_1]+1j*Aprev[index_2]))*2/self.kappa.max()
+            buf = np.dot(DispJacob+self.InitGainOperator(power)*2/self.kappa.max(),Aprev)
+            buf[index_1]-=self.g0*self.Tr/(hbar*self.w0)*2/self.kappa.max()*(Aprev[index_1]*Aprev[index_1]+Aprev[index_2]*Aprev[index_2])*Aprev[index_2]
+            buf[index_2]+=self.g0*self.Tr/(hbar*self.w0)*2/self.kappa.max()*(Aprev[index_1]*Aprev[index_1]+Aprev[index_2]*Aprev[index_2])*Aprev[index_1]
+            J=DispJacob+GainJacob+self.InitNonlinearJacobian((Aprev[index_1]+1j*Aprev[index_2]))*self.g0*self.Tr/(hbar*self.w0)*2/self.kappa.max()
             Ak = Aprev - np.linalg.solve(J,buf)
             
             diff = np.sqrt(abs((Ak-Aprev).dot(np.conj(Ak-Aprev))/(Ak.dot(np.conj(Ak)))))
@@ -346,7 +391,8 @@ class GLE(Gain):
         res = Ak[index_1] + 1j*Ak[index_2]
         
         
-        return np.fft.fft(res)/np.sqrt(2*self.g0/self.kappa.max()), diff_array
+       # return np.fft.fft(res)/np.sqrt(2*self.g0/self.kappa.max()), diff_array
+        return np.fft.fft(res), diff_array
             
     def LinearStability(self,solution,plot_eigvals=True):
         DispJacob = (self.InitDispJacobian())*2/self.kappa.max()
@@ -446,7 +492,7 @@ class GLE(Gain):
         In_gain = np.array(self.gain_grid/self.kappa,dtype=ctypes.c_double)
         In_P_th = ctypes.c_double(P_th)
         In_Ttotal = ctypes.c_double(T_rn)
-        In_g0 = ctypes.c_double(self.g0/(hbar*self.w0)*2/self.kappa.max())
+        In_g0 = ctypes.c_double(self.g0*self.Tr/(hbar*self.w0)*2/self.kappa.max())
         #In_g0 = ctypes.c_double(1.0)
         In_Nt = ctypes.c_int(int(t_st/dt)+1)
         In_dt = ctypes.c_double(dt)
@@ -613,6 +659,29 @@ class TwoCoupledGLE():
         self.Cavity1 = Cavity1
         self.Cavity2 = Cavity2
         self.J = J
+        
+    def Init_From_File(self,data_dir):
+        simulation_parameters={}
+        map2d=np.array([],dtype=complex)
+        map2d=np.load(data_dir+'map2d.npy')  
+        self.J = np.load(data_dir+'J.npy')  
+        simulation_parameters, dummy1 = self.Cavity1.Init_From_File(data_dir+'First_cavity/')
+        dummy2, dummy3 = self.Cavity2.Init_From_File(data_dir+'First_cavity/')
+         
+        
+        return simulation_parameters, map2d
+    def Save_Data(self,map2d,Simulation_Params,directory='./'):
+        params = self.__dict__
+        try: 
+            os.mkdir(directory+'First_cavity/')
+            os.mkdir(directory+'Second_cavity/')
+        except:
+            pass
+        self.Cavity1.Save_Data(np.zeros(1), Simulation_Params,directory+'First_cavity/')
+        self.Cavity2.Save_Data(np.zeros(1), Simulation_Params,directory+'Second_cavity/')
+        np.save(directory+'map2d.npy',map2d)
+        np.save(directory+'J.npy',self.J)
+        
     def Propagate_PseudoSpectralSAMCLIB(self, simulation_parameters, Seed=[0], dt=5e-4,HardSeed=False):
        
         #start_time = time.time()
@@ -691,7 +760,7 @@ class TwoCoupledGLE():
         In_P_th1 = ctypes.c_double(P_th1)
         In_P_th2 = ctypes.c_double(P_th2)
         In_Ttotal = ctypes.c_double(T_rn)
-        In_g0 = ctypes.c_double(self.Cavity1.g0/(hbar*self.Cavity1.w0)*2/max_gain)
+        In_g0 = ctypes.c_double(self.Cavity1.g0*self.Cavity1.Tr/(hbar*self.Cavity1.w0)*2/max_gain)
         In_J = ctypes.c_double(self.J*2/max_gain)
         #In_g0 = ctypes.c_double(1.0)
         In_Nt = ctypes.c_int(int(t_st/dt)+1)
